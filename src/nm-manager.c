@@ -1720,13 +1720,6 @@ recheck_assume_connection (NMDevice *device, gpointer user_data)
 			nm_device_state_changed (device,
 			                         NM_DEVICE_STATE_UNAVAILABLE,
 			                         NM_DEVICE_STATE_REASON_CONFIG_FAILED);
-
-			/* Return default-unmanaged devices to their original state */
-			if (nm_device_get_unmanaged_flag (device, NM_UNMANAGED_DEFAULT)) {
-				nm_device_state_changed (device,
-				                         NM_DEVICE_STATE_UNMANAGED,
-				                         NM_DEVICE_STATE_REASON_CONFIG_FAILED);
-			}
 		}
 
 		if (generated) {
