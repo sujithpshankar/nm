@@ -96,13 +96,19 @@ get_peer (NMDeviceVeth *self)
 	return priv->peer;
 }
 
+/**************************************************************/
+
+static NMConnection *
+new_default_connection (NMDevice *self)
+{
+	return NULL;
+}
 
 /**************************************************************/
 
 static void
 nm_device_veth_init (NMDeviceVeth *self)
 {
-	nm_device_set_initial_unmanaged_flag (NM_DEVICE (self), NM_UNMANAGED_DEFAULT, TRUE);
 }
 
 static void
@@ -141,11 +147,14 @@ static void
 nm_device_veth_class_init (NMDeviceVethClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
+	NMDeviceClass *device_class = NM_DEVICE_CLASS (klass);
 
 	g_type_class_add_private (klass, sizeof (NMDeviceVethPrivate));
 
 	object_class->get_property = get_property;
 	object_class->dispose = dispose;
+
+	device_class->new_default_connection = new_default_connection;
 
 	/* properties */
 	g_object_class_install_property
