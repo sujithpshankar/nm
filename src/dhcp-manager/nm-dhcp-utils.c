@@ -597,6 +597,7 @@ nm_dhcp_utils_ip6_config_from_options (const char *iface,
 {
 	NMIP6Config *ip6_config = NULL;
 	struct in6_addr tmp_addr;
+	long int plen;
 	NMPlatformIP6Address address;
 	char *str = NULL;
 	GHashTableIter iter;
@@ -644,6 +645,20 @@ nm_dhcp_utils_ip6_config_from_options (const char *iface,
 		/* No address in Managed mode is a hard error */
 		goto error;
 	}
+
+	str = g_hash_table_lookup (options, "ip6_prefixlen");
+	if (str) {
+		plen = strtol (str, NULL, 10);
+		if (plen < 0 || plen > 128) {
+			nm_log_warn (LOGD_DHCP6, "invalid ip6_prefixlen '%ld'", plen);
+			goto error;
+		}
+		nm_log_info (LOGD_DHCP6, "  plen %d (%s)", (guint32) plen, str);
+	} else {
+		plen = 128; /* use 128 as default prefix length */
+		nm_log_info (LOGD_DHCP6, "  plen %d (default)", (guint32) plen);
+	}
+	address.plen = (guint32) plen;
 
 	str = g_hash_table_lookup (options, "host_name");
 	if (str)
