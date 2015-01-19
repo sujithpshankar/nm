@@ -77,7 +77,7 @@ sigterm_handler (gpointer user_data)
 void
 nm_main_utils_setup_signals (GMainLoop *main_loop)
 {
-	g_return_val_if_fail (main_loop != NULL, FALSE);
+	g_return_if_fail (main_loop != NULL);
 
 	signal (SIGPIPE, SIG_IGN);
 
