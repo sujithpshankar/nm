@@ -3235,6 +3235,12 @@ nm_setting_802_1x_class_init (NMSetting8021xClass *setting_class)
 	 * Substring to be matched against the subject of the certificate presented
 	 * by the authentication server. When unset, no verification of the
 	 * authentication server certificate's subject is performed.
+	 *
+	 * Because this is only a substring match, it can potentially be spoofed,
+	 * and so offers only limited protection.
+	 *
+	 * Deprecated: #NMSetting8021x:cert-match provides a more generic way to
+	 * specify how to match the server certificate.
 	 **/
 	/* ---ifcfg-rh---
 	 * property: subject-match
@@ -3256,6 +3262,28 @@ nm_setting_802_1x_class_init (NMSetting8021xClass *setting_class)
 	 * List of strings to be matched against the altSubjectName of the
 	 * certificate presented by the authentication server. If the list is empty,
 	 * no verification of the server certificate's altSubjectName is performed.
+	 *
+	 * Deprecated: #NMSetting8021x:server-cert-match provides a more generic way
+	 * to specify how to match the server certificate.
+	 **/
+	/* ---ifcfg-rh---
+	 * property: altubject-matches
+	 * variable: IEEE_8021X_AlTSUBJECT_MATCHES(+)
+	 * description: List of strings to be matched against the altSubjectName.
+	 * example: IEEE_8021X_ALTSUBJECT_MATCHES="s1.domain.cc"
+	 * ---end---
+	 */
+	g_object_class_install_property
+		(object_class, PROP_ALTSUBJECT_MATCHES,
+		 g_param_spec_boxed (NM_SETTING_802_1X_ALTSUBJECT_MATCHES, "", "",
+		                     G_TYPE_STRV,
+		                     G_PARAM_READWRITE |
+		                     G_PARAM_STATIC_STRINGS));
+
+	/**
+	 * NMSetting8021x:cert-match:
+	 *
+	 * 
 	 **/
 	/* ---ifcfg-rh---
 	 * property: altubject-matches
@@ -3472,6 +3500,13 @@ nm_setting_802_1x_class_init (NMSetting8021xClass *setting_class)
 	 * by the authentication server during the inner "phase 2"
 	 * authentication. When unset, no verification of the authentication server
 	 * certificate's subject is performed.
+	 *
+	 * Because this is only a substring match, it can potentially be spoofed,
+	 * and so offers only limited protection.
+	 *
+	 * Deprecated: #NMSetting8021x:phase2-cert-match-type and
+	 * #NMSetting8021x:phase2-cert-match provide a more generic way to specify
+	 * how to match the server certificate.
 	 **/
 	/* ---ifcfg-rh---
 	 * property: phase2-subject-match
