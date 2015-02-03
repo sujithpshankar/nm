@@ -68,18 +68,18 @@ G_STMT_START { \
 
 #define log_assert_failed(e, file, line, func) \
 G_STMT_START { \
-	nm_log_err (LOGD_DHCP, #file ":" #line "(" #func "): assertion failed: " # e); \
+	nm_log_err (LOGD_DHCP, "%s:%d(%s): assertion failed: %s", file, line, func, e); \
 	g_assert (FALSE); \
 } G_STMT_END
 
 #define log_assert_failed_unreachable(t, file, line, func) \
 G_STMT_START { \
-	nm_log_err (LOGD_DHCP, #file ":" #line "(" #func "): assert unreachable: " # t); \
+	nm_log_err (LOGD_DHCP, "%s:%d(%s): assert unreachable: %s", file, line, func, #t); \
 	g_assert_not_reached (); \
 } G_STMT_END
 
 #define log_assert_failed_return(e, file, line, func) \
-	nm_log_err (LOGD_DHCP, #file ":" #line "(" #func "): assert return: " # e); \
+	nm_log_err (LOGD_DHCP, "%s:%d(%s): assert return: %s", file, line, func, e);
 
 #define log_oom nm_log_err(LOGD_CORE, "%s:%s/%s: OOM", __FILE__, __LINE__, __func__)
 
