@@ -360,18 +360,14 @@ nm_logging_enabled (NMLogLevel level, NMLogDomain domain)
 }
 
 void
-_nm_log (const char *file,
-         guint line,
-         const char *func,
-         NMLogLevel level,
+_nm_log (NMLogLevel level,
          NMLogDomain domain,
          const char *fmt,
          ...)
 {
 	va_list args;
 	char *msg;
-	char *fullmsg = NULL;
-	GTimeVal tv;
+	const char *tag = NULL;
 	int syslog_level = LOG_INFO;
 	int g_log_level = G_LOG_LEVEL_INFO;
 
@@ -388,45 +384,41 @@ _nm_log (const char *file,
 
 	switch (level) {
 	case LOGL_TRACE:
-		g_get_current_time (&tv);
 		syslog_level = LOG_DEBUG;
 		g_log_level = G_LOG_LEVEL_DEBUG;
-		fullmsg = g_strdup_printf ("<trace> [%ld.%06ld] [%s:%u] %s(): %s", tv.tv_sec, tv.tv_usec, file, line, func, msg);
+		tag = "<trace>";
 		break;
 	case LOGL_DEBUG:
-		g_get_current_time (&tv);
 		syslog_level = LOG_INFO;
 		g_log_level = G_LOG_LEVEL_DEBUG;
-		fullmsg = g_strdup_printf ("<debug> [%ld.%06ld] [%s:%u] %s(): %s", tv.tv_sec, tv.tv_usec, file, line, func, msg);
+		tag = "<debug>";
 		break;
 	case LOGL_INFO:
 		syslog_level = LOG_INFO;
 		g_log_level = G_LOG_LEVEL_MESSAGE;
-		fullmsg = g_strconcat ("<info>  ", msg, NULL);
+		tag = "<info>";
 		break;
 	case LOGL_WARN:
 		syslog_level = LOG_WARNING;
 		g_log_level = G_LOG_LEVEL_WARNING;
-		fullmsg = g_strconcat ("<warn>  ", msg, NULL);
+		tag = "<warn>";
 		break;
 	case LOGL_ERR:
 		syslog_level = LOG_ERR;
 		/* g_log_level is still WARNING, because ERROR is fatal */
 		g_log_level = G_LOG_LEVEL_WARNING;
-		g_get_current_time (&tv);
-		fullmsg = g_strdup_printf ("<error> [%ld.%06ld] [%s:%u] %s(): %s", tv.tv_sec, tv.tv_usec, file, line, func, msg);
+		tag = "<error>";
 		break;
 	default:
 		g_assert_not_reached ();
 	}
 
 	if (syslog_opened)
-		syslog (syslog_level, "%s", fullmsg);
+		syslog (syslog_level, "%s %s", tag, msg);
 	else
-		g_log (G_LOG_DOMAIN, g_log_level, "%s", fullmsg);
+		g_log (G_LOG_DOMAIN, g_log_level, "%s %s", tag, msg);
 
 	g_free (msg);
-	g_free (fullmsg);
 }
 
 /************************************************************************/
