@@ -712,7 +712,7 @@ auto_register_cb (gpointer user_data)
 /**************************************************************/
 
 /**
- * nm_secret_agent_get_secrets:
+ * nm_secret_agent_get_secrets: (virtual get_secrets):
  * @self: a #NMSecretAgent
  * @connection: the #NMConnection for which we're asked secrets
  * @setting_name: the name of the secret setting
@@ -726,8 +726,6 @@ auto_register_cb (gpointer user_data)
  * agent should use when performing the request, for example returning only
  * existing secrets without user interaction, or requesting entirely new
  * secrets from the user.
- *
- * Virtual: get_secrets
  */
 void
 nm_secret_agent_get_secrets (NMSecretAgent *self,
@@ -756,7 +754,7 @@ nm_secret_agent_get_secrets (NMSecretAgent *self,
 }
 
 /**
- * nm_secret_agent_save_secrets:
+ * nm_secret_agent_save_secrets: (virtual save_secrets):
  * @self: a #NMSecretAgent
  * @connection: a #NMConnection
  * @callback: (scope async): a callback, to be invoked when the operation is done
@@ -764,8 +762,6 @@ nm_secret_agent_get_secrets (NMSecretAgent *self,
  *
  * Asyncronously ensure that all secrets inside @connection
  * are stored to disk.
- *
- * Virtual: save_secrets
  */
 void
 nm_secret_agent_save_secrets (NMSecretAgent *self,
@@ -785,7 +781,7 @@ nm_secret_agent_save_secrets (NMSecretAgent *self,
 }
 
 /**
- * nm_secret_agent_delete_secrets:
+ * nm_secret_agent_delete_secrets: (virtual delete_secrets):
  * @self: a #NMSecretAgent
  * @connection: a #NMConnection
  * @callback: (scope async): a callback, to be invoked when the operation is done
@@ -793,8 +789,6 @@ nm_secret_agent_save_secrets (NMSecretAgent *self,
  *
  * Asynchronously ask the agent to delete all saved secrets belonging to
  * @connection.
- *
- * Virtual: delete_secrets
  */
 void
 nm_secret_agent_delete_secrets (NMSecretAgent *self,
