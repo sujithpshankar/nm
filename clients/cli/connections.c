@@ -2043,7 +2043,9 @@ activate_connection_cb (GObject *client, GAsyncResult *result, gpointer user_dat
 	const GPtrArray *ac_devs;
 	GError *error = NULL;
 
+	g_print (">>> nm_client_activate_connection_finish() xxx\n");
 	active = nm_client_activate_connection_finish (NM_CLIENT (client), result, &error);
+	g_print (">>> nm_client_activate_connection_finish() returned: %p, %s\n", active, error ? error->message : "-");
 
 	if (error) {
 		g_string_printf (nmc->return_text, _("Error: Connection activation failed: %s"),
@@ -2081,6 +2083,7 @@ activate_connection_cb (GObject *client, GAsyncResult *result, gpointer user_dat
 					progress_id = g_timeout_add (120, progress_vpn_cb, NM_VPN_CONNECTION (active));
 				}
 			} else {
+				g_print (">> wait for notify:state\n");
 				g_signal_connect (active, "notify::state", G_CALLBACK (active_connection_state_cb), nmc);
 				active_connection_state_cb (active, NULL, nmc);
 
@@ -2253,6 +2256,7 @@ nmc_activate_connection (NmCli *nmc,
 	info->nmc = nmc;
 	info->device = device;
 
+	g_print (">>> nm_client_activate_connection_finish() callxxxxx\n");
 	nm_client_activate_connection_async (nmc->client,
 	                                     connection,
 	                                     device,
@@ -2368,6 +2372,7 @@ do_connection_up (NmCli *nmc, int argc, char **argv)
 	nmc->nowait_flag = (nmc->timeout == 0);
 	nmc->should_wait = TRUE;
 
+	g_print (">>> nm_client_activate_connection_finish() call\n");
 	if (!nmc_activate_connection (nmc, connection, ifname, ap, nsp, pwds, activate_connection_cb, &error)) {
 		g_string_printf (nmc->return_text, _("Error: %s."),
 		                 error ? error->message : _("unknown error"));

@@ -831,6 +831,8 @@ activate_cb (GObject *object,
 	NMActiveConnection *ac;
 	GError *error = NULL;
 
+	g_print (">>> call nm_manager_activate_connection_async() returned\n");
+
 	ac = nm_manager_activate_connection_finish (NM_MANAGER (object), result, &error);
 	if (ac)
 		g_simple_async_result_set_op_res_gpointer (simple, ac, g_object_unref);
@@ -899,6 +901,7 @@ nm_client_activate_connection_async (NMClient *client,
 
 	simple = g_simple_async_result_new (G_OBJECT (client), callback, user_data,
 	                                    nm_client_activate_connection_async);
+	g_print (">>> call nm_manager_activate_connection_async()\n");
 	nm_manager_activate_connection_async (NM_CLIENT_GET_PRIVATE (client)->manager,
 	                                      connection, device, specific_object,
 	                                      cancellable, activate_cb, simple);

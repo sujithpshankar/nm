@@ -5822,6 +5822,8 @@ nm_device_queue_activation (NMDevice *self, NMActRequest *req)
 		return;
 	}
 
+	nm_log_dbg (LOGD_CORE, ">>> queue reuest: is %p (%d), new: %p (%d)", priv->queued_act_request, priv->queued_act_request ? (int) nm_active_connection_get_state ((NMActiveConnection *) priv->queued_act_request) : -1, req, nm_active_connection_get_state ((NMActiveConnection *)req));
+
 	/* supercede any already-queued request */
 	_clear_queued_act_request (priv);
 	priv->queued_act_request = g_object_ref (req);
@@ -6448,7 +6450,7 @@ nm_device_bring_up (NMDevice *self, gboolean block, gboolean *no_firmware)
 			g_source_remove (priv->carrier_wait_id);
 		else
 			nm_device_add_pending_action (self, "carrier wait", TRUE);
-		priv->carrier_wait_id = g_timeout_add_seconds (5, carrier_wait_timeout, self);
+		priv->carrier_wait_id = g_timeout_add_seconds (300000, carrier_wait_timeout, self);
 	}
 
 	/* Can only get HW address of some devices when they are up */

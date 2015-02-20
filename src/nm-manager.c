@@ -267,12 +267,15 @@ active_connection_remove (NMManager *self, NMActiveConnection *active)
 	gboolean notify = !!nm_active_connection_get_path (active);
 	GSList *found;
 
+	nm_log_dbg (LOGD_CORE, ">>> active_connection_remove(): %p, %s", active, nm_active_connection_get_path (active));
+
 	/* FIXME: switch to a GList for faster removal */
 	found = g_slist_find (priv->active_connections, active);
 	if (found) {
 		NMConnection *connection;
 
 		priv->active_connections = g_slist_remove (priv->active_connections, active);
+		nm_log_dbg (LOGD_CORE, ">>> active_connection_remove(): %p raise", active);
 		g_signal_emit (self, signals[ACTIVE_CONNECTION_REMOVED], 0, active);
 		g_signal_handlers_disconnect_by_func (active, active_connection_state_changed, self);
 		g_signal_handlers_disconnect_by_func (active, active_connection_default_changed, self);
@@ -3154,11 +3157,14 @@ _activation_auth_done (NMActiveConnection *active,
 	GError *error = NULL;
 
 	if (success) {
+		nm_log_dbg (LOGD_CORE, ">>> start activating");
 		if (_internal_activate_generic (self, active, &error)) {
+			nm_log_dbg (LOGD_CORE, ">>> activating success %s", nm_active_connection_get_path (active));
 			dbus_g_method_return (context, nm_active_connection_get_path (active));
 			g_object_unref (active);
 			return;
 		}
+		nm_log_dbg (LOGD_CORE, ">>> activating failure: %s", error->message);
 	} else {
 		error = g_error_new_literal (NM_MANAGER_ERROR,
 			                         NM_MANAGER_ERROR_PERMISSION_DENIED,

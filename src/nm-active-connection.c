@@ -853,6 +853,8 @@ dispose (GObject *object)
 	NMActiveConnection *self = NM_ACTIVE_CONNECTION (object);
 	NMActiveConnectionPrivate *priv = NM_ACTIVE_CONNECTION_GET_PRIVATE (self);
 
+	nm_log_dbg (LOGD_CORE, ">>> DISPOSE NMActiveConnection %p, %s", object, priv->path);
+
 	if (priv->chain) {
 		nm_auth_chain_unref (priv->chain);
 		priv->chain = NULL;

@@ -850,6 +850,7 @@ active_removed (NMObject *object, NMActiveConnection *active, gpointer user_data
 	ActivateInfo *info = user_data;
 	GError *error = NULL;
 
+	g_print (">>> RETURN %p - %s\n", info, nm_object_get_path (NM_OBJECT (active)));
 	if (strcmp (info->active_path, nm_object_get_path (NM_OBJECT (active))))
 		return;
 
@@ -868,6 +869,7 @@ activate_cb (GObject *object,
 	ActivateInfo *info = user_data;
 	GError *error = NULL;
 
+	g_print (">>> call nmdbus_manager_call_activate_connection() return\n");
 	if (nmdbus_manager_call_activate_connection_finish (NMDBUS_MANAGER (object),
 	                                                    &info->active_path,
 	                                                    result, &error)) {
@@ -876,6 +878,7 @@ activate_cb (GObject *object,
 			                                       G_CALLBACK (activation_cancelled), info);
 		}
 
+		g_print (">>> WAIT %p, %s\n", info, info->active_path);
 		g_signal_connect (info->manager, "active-connection-removed",
 		                  G_CALLBACK (active_removed), info);
 
@@ -914,6 +917,7 @@ nm_manager_activate_connection_async (NMManager *manager,
 	priv = NM_MANAGER_GET_PRIVATE (manager);
 	priv->pending_activations = g_slist_prepend (priv->pending_activations, info);
 
+	g_print (">>> call nmdbus_manager_call_activate_connection()\n");
 	nmdbus_manager_call_activate_connection (priv->manager_proxy,
 	                                         connection ? nm_connection_get_path (connection) : "/",
 	                                         device ? nm_object_get_path (NM_OBJECT (device)) : "/",
@@ -1027,6 +1031,7 @@ device_ac_changed (GObject *object, GParamSpec *pspec, gpointer user_data)
 {
 	NMManager *self = user_data;
 
+	g_print (">>> call %s()\n", __PRETTY_FUNCTION__);
 	recheck_pending_activations (self);
 }
 
@@ -1048,12 +1053,14 @@ ac_devices_changed (GObject *object, GParamSpec *pspec, gpointer user_data)
 {
 	NMManager *self = user_data;
 
+	g_print (">>> call %s()\n", __PRETTY_FUNCTION__);
 	recheck_pending_activations (self);
 }
 
 static void
 active_connection_added (NMManager *self, NMActiveConnection *ac)
 {
+	g_print (">>> call %s()\n", __PRETTY_FUNCTION__);
 	g_signal_connect (ac, "notify::" NM_ACTIVE_CONNECTION_DEVICES,
 	                  G_CALLBACK (ac_devices_changed), self);
 	recheck_pending_activations (self);
