@@ -8856,6 +8856,19 @@ set_property (GObject *object, guint prop_id,
 	case PROP_IP4_ADDRESS:
 		priv->ip4_address = g_value_get_uint (value);
 		break;
+	case PROP_MANAGED:
+		if (g_value_get_boolean (value)) {
+			if (priv->state == NM_DEVICE_STATE_UNMANAGED)
+				nm_device_state_changed (self,
+				                         NM_DEVICE_STATE_DISCONNECTED,
+				                         NM_DEVICE_STATE_REASON_USER_REQUESTED);
+		} else {
+			if (priv->state != NM_DEVICE_STATE_UNMANAGED)
+				nm_device_state_changed (self,
+				                         NM_DEVICE_STATE_UNMANAGED,
+				                         NM_DEVICE_STATE_REASON_USER_REQUESTED);
+		}
+		break;
 	case PROP_AUTOCONNECT:
 		nm_device_set_autoconnect (self, g_value_get_boolean (value));
 		break;
@@ -9221,7 +9234,7 @@ nm_device_class_init (NMDeviceClass *klass)
 		(object_class, PROP_MANAGED,
 		 g_param_spec_boolean (NM_DEVICE_MANAGED, "", "",
 		                       FALSE,
-		                       G_PARAM_READABLE |
+		                       G_PARAM_READWRITE |
 		                       G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property
