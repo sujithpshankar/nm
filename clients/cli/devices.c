@@ -342,6 +342,17 @@ usage_device_delete (void)
 }
 
 static void
+usage_device_set (void)
+{
+	g_printerr (_("Usage: nmcli device set { ARGUMENTS | help }\n"
+	              "\n"
+	              "ARGUMENTS := <ifname> { SETTING, [ SETTING ... ] }\n"
+	              "SETTING := { managed | autoconnect } { on | off }\n"
+	              "\n"
+	              "Modified device properties.\n\n"));
+}
+
+static void
 usage_device_wifi (void)
 {
 	g_printerr (_("Usage: nmcli device wifi { ARGUMENTS | help }\n"
@@ -2029,6 +2040,96 @@ error:
 	return nmc->return_value;
 }
 
+static NMCResultCode
+do_device_set (NmCli *nmc, int argc, char **argv)
+{
+	NMDevice **devices;
+	NMDevice *device = NULL;
+	const char *ifname = NULL;
+	int i;
+	gboolean flag;
+
+	if (argc == 0) {
+		g_string_printf (nmc->return_text, _("Error: No interface specified."));
+		nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+		goto error;
+	} else
+		ifname = *argv;
+
+	if (!ifname) {
+		g_string_printf (nmc->return_text, _("Error: No interface specified."));
+		nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+		goto error;
+	}
+
+	devices = get_devices_sorted (nmc->client);
+	for (i = 0; devices[i]; i++) {
+		NMDevice *candidate = devices[i];
+		const char *dev_iface = nm_device_get_iface (candidate);
+
+		if (!g_strcmp0 (dev_iface, ifname))
+			device = candidate;
+	}
+	g_free (devices);
+
+	if (!device) {
+		g_string_printf (nmc->return_text, _("Error: Device '%s' not found."), ifname);
+		nmc->return_value = NMC_RESULT_ERROR_NOT_FOUND;
+		goto error;
+	}
+
+        if (argc == 1) {
+		g_string_printf (nmc->return_text, _("Error: No property specified."));
+		nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+		goto error;
+	}
+
+	while (next_arg (&argc, &argv) == 0) {
+		if (nmc_arg_is_help (*argv)) {
+			usage_device_set ();
+			goto error;
+		}
+		else if (matches (*argv, "managed") == 0) {
+			if (nmc_arg_is_help (*(argv+1))) {
+				usage_device_set ();
+				goto error;
+			}
+			if (next_arg (&argc, &argv) != 0) {
+				g_string_printf (nmc->return_text, _("Error: Agrument missing."));
+				nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+				goto error;
+			}
+			if (!nmc_switch_parse_on_off (nmc, *(argv-1), *argv, &flag))
+				goto error;
+			nm_device_set_managed (device, flag);
+		}
+		else if (matches (*argv, "autoconnect") == 0) {
+			if (nmc_arg_is_help (*(argv+1))) {
+				usage_device_set ();
+				goto error;
+			}
+			if (next_arg (&argc, &argv) != 0) {
+				g_string_printf (nmc->return_text, _("Error: Agrument missing."));
+				nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+				goto error;
+			}
+			if (!nmc_switch_parse_on_off (nmc, *(argv-1), *argv, &flag))
+				goto error;
+			nm_device_set_autoconnect (device, flag);
+		}
+		else {
+			usage_device_set ();
+			g_string_printf (nmc->return_text, _("Error: property '%s' is not known."), *argv);
+			nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+			goto error;
+		}
+        }
+
+error:
+	quit ();
+	return nmc->return_value;
+}
+
 static void
 show_access_point_info (NMDevice *device, NmCli *nmc)
 {
@@ -3067,6 +3168,13 @@ do_devices (NmCli *nmc, int argc, char **argv)
 				goto usage_exit;
 			}
 			nmc->return_value = do_device_delete (nmc, argc-1, argv+1);
+		}
+		else if (matches (*argv, "set") == 0) {
+			if (nmc_arg_is_help (*(argv+1))) {
+				usage_device_set ();
+				goto usage_exit;
+			}
+			nmc->return_value = do_device_set (nmc, argc-1, argv+1);
 		}
 		else if (matches (*argv, "wifi") == 0) {
 			if (nmc_arg_is_help (*(argv+1))) {
