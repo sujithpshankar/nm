@@ -162,6 +162,26 @@ nmc_parse_args (nmc_arg_t *arg_arr, gboolean last, int *argc, char ***argv, GErr
 	return TRUE;
 }
 
+gboolean
+nmc_switch_parse_on_off (NmCli *nmc, const char *arg1, const char *arg2, gboolean *res)
+{
+	g_return_val_if_fail (nmc != NULL, FALSE);
+	g_return_val_if_fail (arg1 && arg2, FALSE);
+	g_return_val_if_fail (res != NULL, FALSE);
+
+	if (!strcmp (arg2, "on"))
+		*res = TRUE;
+	else if (!strcmp (arg2, "off"))
+		*res = FALSE;
+	else {
+		g_string_printf (nmc->return_text, _("Error: invalid '%s' argument: '%s' (use on/off)."), arg1, arg2);
+		nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 /*
  *  Convert SSID to a hex string representation.
  *  Caller has to free the returned string using g_free()

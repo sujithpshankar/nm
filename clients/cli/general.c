@@ -710,26 +710,6 @@ nmc_switch_show (NmCli *nmc, const char *switch_name, const char *header)
 }
 
 static gboolean
-nmc_switch_parse_on_off (NmCli *nmc, const char *arg1, const char *arg2, gboolean *res)
-{
-	g_return_val_if_fail (nmc != NULL, FALSE);
-	g_return_val_if_fail (arg1 && arg2, FALSE);
-	g_return_val_if_fail (res != NULL, FALSE);
-
-	if (!strcmp (arg2, "on"))
-		*res = TRUE;
-	else if (!strcmp (arg2, "off"))
-		*res = FALSE;
-	else {
-		g_string_printf (nmc->return_text, _("Error: invalid '%s' argument: '%s' (use on/off)."), arg1, arg2);
-		nmc->return_value = NMC_RESULT_ERROR_USER_INPUT;
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-static gboolean
 show_networking_connectivity (NmCli *nmc)
 {
 	return nmc_switch_show (nmc, NMC_FIELDS_NM_CONNECTIVITY, _("Connectivity"));

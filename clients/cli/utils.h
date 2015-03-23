@@ -38,6 +38,7 @@ int next_arg (int *argc, char ***argv);
 gboolean nmc_arg_is_help (const char *arg);
 gboolean nmc_arg_is_option (const char *arg, const char *opt_name);
 gboolean nmc_parse_args (nmc_arg_t *arg_arr, gboolean last, int *argc, char ***argv, GError **error);
+gboolean nmc_switch_parse_on_off (NmCli *nmc, const char *arg1, const char *arg2, gboolean *res);
 char *ssid_to_hex (const char *str, gsize len);
 gboolean nmc_string_to_int_base (const char *str,
                                  int base,
