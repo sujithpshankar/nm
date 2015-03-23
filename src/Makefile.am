@@ -399,6 +399,7 @@ AM_CPPFLAGS += \
 	$(LIBNL_CFLAGS) \
 	$(LIBNDP_CFLAGS) \
 	$(LIBSOUP_CFLAGS) \
+	$(SELINUX_CFLAGS) \
 	$(SYSTEMD_LOGIN_CFLAGS) \
 	$(SYSTEMD_DHCP_CFLAGS) \
 	\
@@ -440,6 +441,10 @@ libNetworkManager_la_LIBADD = \
 
 if WITH_LIBSOUP
 libNetworkManager_la_LIBADD += $(LIBSOUP_LIBS)
+endif
+
+if HAVE_SELINUX
+libNetworkManager_la_LIBADD += $(SELINUX_LIBS)
 endif
 
 NetworkManager_LDFLAGS = -rdynamic
