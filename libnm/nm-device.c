@@ -476,6 +476,11 @@ set_property (GObject *object,
 		/* Construct only */
 		priv->device_type = g_value_get_enum (value);
 		break;
+	case PROP_MANAGED:
+		b = g_value_get_boolean (value);
+		if (priv->managed != b)
+			nm_device_set_managed (NM_DEVICE (object), b);
+		break;
 	case PROP_AUTOCONNECT:
 		b = g_value_get_boolean (value);
 		if (priv->autoconnect != b)
@@ -1069,6 +1074,28 @@ nm_device_get_managed (NMDevice *device)
 	g_return_val_if_fail (NM_IS_DEVICE (device), 0);
 
 	return NM_DEVICE_GET_PRIVATE (device)->managed;
+}
+
+/**
+ * nm_device_set_managed:
+ * @device: a #NMDevice
+ * @managed: %TRUE to make the device managed by NetworkManager.
+ *
+ * Enables or disables management of  #NMDevice by NetworkManager.
+ *
+ * Since: 1.2
+ **/
+void
+nm_device_set_managed (NMDevice *device, gboolean managed)
+{
+	g_return_if_fail (NM_IS_DEVICE (device));
+
+	NM_DEVICE_GET_PRIVATE (device)->managed = managed;
+
+	_nm_object_set_property (NM_OBJECT (device),
+	                         NM_DBUS_INTERFACE_DEVICE,
+	                         "Managed",
+	                         "b", managed);
 }
 
 /**
