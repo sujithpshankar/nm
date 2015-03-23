@@ -1594,7 +1594,7 @@ recheck_assume_connection (NMDevice *device, gpointer user_data)
 {
 	NMManager *self = NM_MANAGER (user_data);
 	NMConnection *connection;
-	gboolean was_unmanaged = FALSE, success, generated;
+	gboolean success, generated;
 	NMDeviceState state;
 
 	if (manager_sleeping (self))
@@ -1616,34 +1616,12 @@ recheck_assume_connection (NMDevice *device, gpointer user_data)
 		return FALSE;
 	}
 
-	if (state == NM_DEVICE_STATE_UNMANAGED) {
-		was_unmanaged = TRUE;
-		nm_device_state_changed (device,
-		                         NM_DEVICE_STATE_UNAVAILABLE,
-		                         NM_DEVICE_STATE_REASON_CONNECTION_ASSUMED);
-	}
-
 	success = assume_connection (self, device, connection);
-	if (!success) {
-		if (was_unmanaged) {
-			nm_device_state_changed (device,
-			                         NM_DEVICE_STATE_UNAVAILABLE,
-			                         NM_DEVICE_STATE_REASON_CONFIG_FAILED);
+	if (!success && generated) {
+		nm_log_dbg (LOGD_DEVICE, "(%s): connection assumption failed. Deleting generated connection",
+			    nm_device_get_iface (device));
 
-			/* Return default-unmanaged devices to their original state */
-			if (nm_device_get_unmanaged_flag (device, NM_UNMANAGED_DEFAULT)) {
-				nm_device_state_changed (device,
-				                         NM_DEVICE_STATE_UNMANAGED,
-				                         NM_DEVICE_STATE_REASON_CONFIG_FAILED);
-			}
-		}
-
-		if (generated) {
-			nm_log_dbg (LOGD_DEVICE, "(%s): connection assumption failed. Deleting generated connection",
-			            nm_device_get_iface (device));
-
-			nm_settings_connection_delete (NM_SETTINGS_CONNECTION (connection), NULL, NULL);
-		}
+		nm_settings_connection_delete (NM_SETTINGS_CONNECTION (connection), NULL, NULL);
 	}
 
 	return success;
@@ -4201,6 +4179,9 @@ prop_filter (DBusConnection *connection,
 		permission = NM_AUTH_PERMISSION_ENABLE_DISABLE_WIMAX;
 	} else if (!strcmp (propname, "Autoconnect")) {
 		glib_propname = NM_DEVICE_AUTOCONNECT;
+		permission = NM_AUTH_PERMISSION_NETWORK_CONTROL;
+	} else if (!strcmp (propname, "Managed")) {
+		glib_propname = NM_DEVICE_MANAGED;
 		permission = NM_AUTH_PERMISSION_NETWORK_CONTROL;
 	} else
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
