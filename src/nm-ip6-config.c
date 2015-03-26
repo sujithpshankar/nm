@@ -49,6 +49,7 @@ typedef struct {
 	GArray *nameservers;
 	GPtrArray *domains;
 	GPtrArray *searches;
+	GPtrArray *options;
 	guint32 mss;
 	int ifindex;
 } NMIP6ConfigPrivate;
@@ -65,6 +66,7 @@ enum {
 	PROP_NAMESERVERS,
 	PROP_DOMAINS,
 	PROP_SEARCHES,
+	PROP_OPTIONS,
 
 	LAST_PROP
 };
@@ -418,7 +420,7 @@ nm_ip6_config_commit (const NMIP6Config *config, int ifindex)
 void
 nm_ip6_config_merge_setting (NMIP6Config *config, NMSettingIPConfig *setting, guint32 default_route_metric)
 {
-	guint naddresses, nroutes, nnameservers, nsearches;
+	guint naddresses, nroutes, nnameservers, nsearches, noptions;
 	const char *gateway_str;
 	int i;
 
@@ -431,6 +433,7 @@ nm_ip6_config_merge_setting (NMIP6Config *config, NMSettingIPConfig *setting, gu
 	nroutes = nm_setting_ip_config_get_num_routes (setting);
 	nnameservers = nm_setting_ip_config_get_num_dns (setting);
 	nsearches = nm_setting_ip_config_get_num_dns_searches (setting);
+	noptions = nm_setting_ip_config_get_num_dns_options (setting);
 
 	g_object_freeze_notify (G_OBJECT (config));
 
@@ -498,6 +501,8 @@ nm_ip6_config_merge_setting (NMIP6Config *config, NMSettingIPConfig *setting, gu
 	}
 	for (i = 0; i < nsearches; i++)
 		nm_ip6_config_add_search (config, nm_setting_ip_config_get_dns_search (setting, i));
+	for (i = 0; i < noptions; i++)
+		nm_ip6_config_add_option (config, nm_setting_ip_config_get_dns_option (setting, i));
 
 	g_object_thaw_notify (G_OBJECT (config));
 }
@@ -507,7 +512,7 @@ nm_ip6_config_create_setting (const NMIP6Config *config)
 {
 	NMSettingIPConfig *s_ip6;
 	const struct in6_addr *gateway;
-	guint naddresses, nroutes, nnameservers, nsearches;
+	guint naddresses, nroutes, nnameservers, nsearches, noptions;
 	const char *method = NULL;
 	int i;
 
@@ -525,6 +530,7 @@ nm_ip6_config_create_setting (const NMIP6Config *config)
 	nroutes = nm_ip6_config_get_num_routes (config);
 	nnameservers = nm_ip6_config_get_num_nameservers (config);
 	nsearches = nm_ip6_config_get_num_searches (config);
+	noptions = nm_ip6_config_get_num_options (config);
 
 	/* Addresses */
 	for (i = 0; i < naddresses; i++) {
@@ -602,6 +608,12 @@ nm_ip6_config_create_setting (const NMIP6Config *config)
 
 		nm_setting_ip_config_add_dns_search (s_ip6, search);
 	}
+	for (i = 0; i < noptions; i++) {
+		const char *option = nm_ip6_config_get_option (config, i);
+
+		nm_setting_ip_config_add_dns_option (s_ip6, option);
+	}
+
 
 	return NM_SETTING (s_ip6);
 }
@@ -641,6 +653,10 @@ nm_ip6_config_merge (NMIP6Config *dst, const NMIP6Config *src)
 	/* dns searches */
 	for (i = 0; i < nm_ip6_config_get_num_searches (src); i++)
 		nm_ip6_config_add_search (dst, nm_ip6_config_get_search (src, i));
+
+	/* dns options */
+	for (i = 0; i < nm_ip6_config_get_num_options (src); i++)
+		nm_ip6_config_add_option (dst, nm_ip6_config_get_option (src, i));
 
 	if (!nm_ip6_config_get_mss (dst))
 		nm_ip6_config_set_mss (dst, nm_ip6_config_get_mss (src));
@@ -742,6 +758,21 @@ _searches_get_index (const NMIP6Config *self, const char *search)
 	return -1;
 }
 
+static int
+_options_get_index (const NMIP6Config *self, const char *option)
+{
+	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (self);
+	guint i;
+
+	for (i = 0; i < priv->options->len; i++) {
+		const char *s = g_ptr_array_index (priv->options, i);
+
+		if (g_strcmp0 (option, s) == 0)
+			return (int) i;
+	}
+	return -1;
+}
+
 /*******************************************************************************/
 
 /**
@@ -807,6 +838,13 @@ nm_ip6_config_subtract (NMIP6Config *dst, const NMIP6Config *src)
 			nm_ip6_config_del_search (dst, idx);
 	}
 
+	/* dns options */
+	for (i = 0; i < nm_ip6_config_get_num_options (src); i++) {
+		idx = _options_get_index (dst, nm_ip6_config_get_option (src, i));
+		if (idx >= 0)
+			nm_ip6_config_del_option (dst, idx);
+	}
+
 	if (nm_ip6_config_get_mss (src) == nm_ip6_config_get_mss (dst))
 		nm_ip6_config_set_mss (dst, 0);
 
@@ -857,6 +895,7 @@ nm_ip6_config_intersect (NMIP6Config *dst, const NMIP6Config *src)
 
 	/* ignore domains */
 	/* ignore dns searches */
+	/* ignome dns options */
 
 	g_object_thaw_notify (G_OBJECT (dst));
 }
@@ -1021,6 +1060,25 @@ nm_ip6_config_replace (NMIP6Config *dst, const NMIP6Config *src, gboolean *relev
 		has_relevant_changes = TRUE;
 	}
 
+	/* dns options */
+	num = nm_ip6_config_get_num_options (src);
+	are_equal = num == nm_ip6_config_get_num_options (dst);
+	if (are_equal) {
+		for (i = 0; i < num; i++ ) {
+			if (g_strcmp0 (nm_ip6_config_get_option (src, i),
+			               nm_ip6_config_get_option (dst, i))) {
+				are_equal = FALSE;
+				break;
+			}
+		}
+	}
+	if (!are_equal) {
+		nm_ip6_config_reset_options (dst);
+		for (i = 0; i < num; i++)
+			nm_ip6_config_add_option (dst, nm_ip6_config_get_option (src, i));
+		has_relevant_changes = TRUE;
+	}
+
 	/* mss */
 	if (src_priv->mss != dst_priv->mss) {
 		nm_ip6_config_set_mss (dst, src_priv->mss);
@@ -1080,6 +1138,10 @@ nm_ip6_config_dump (const NMIP6Config *config, const char *detail)
 	/* dns searches */
 	for (i = 0; i < nm_ip6_config_get_num_searches (config); i++)
 		g_message (" search: %s", nm_ip6_config_get_search (config, i));
+
+	/* dns options */
+	for (i = 0; i < nm_ip6_config_get_num_options (config); i++)
+		g_message (" option: %s", nm_ip6_config_get_option (config, i));
 
 	g_message ("    mss: %"G_GUINT32_FORMAT, nm_ip6_config_get_mss (config));
 	g_message (" n-dflt: %d", nm_ip6_config_get_never_default (config));
@@ -1563,6 +1625,63 @@ nm_ip6_config_get_search (const NMIP6Config *config, guint i)
 /******************************************************************/
 
 void
+nm_ip6_config_reset_options (NMIP6Config *config)
+{
+	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (config);
+
+	if (priv->options->len != 0) {
+		g_ptr_array_set_size (priv->options, 0);
+		_NOTIFY (config, PROP_OPTIONS);
+	}
+}
+
+void
+nm_ip6_config_add_option (NMIP6Config *config, const char *new)
+{
+	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (config);
+	int i;
+
+	g_return_if_fail (new != NULL);
+	g_return_if_fail (new[0] != '\0');
+
+	for (i = 0; i < priv->options->len; i++)
+		if (!g_strcmp0 (g_ptr_array_index (priv->options, i), new))
+			return;
+
+	g_ptr_array_add (priv->options, g_strdup (new));
+	_NOTIFY (config, PROP_OPTIONS);
+}
+
+void
+nm_ip6_config_del_option (NMIP6Config *config, guint i)
+{
+	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (config);
+
+	g_return_if_fail (i < priv->options->len);
+
+	g_ptr_array_remove_index (priv->options, i);
+	_NOTIFY (config, PROP_OPTIONS);
+}
+
+guint32
+nm_ip6_config_get_num_options (const NMIP6Config *config)
+{
+	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (config);
+
+	return priv->options->len;
+}
+
+const char *
+nm_ip6_config_get_option (const NMIP6Config *config, guint i)
+{
+	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (config);
+
+	return g_ptr_array_index (priv->options, i);
+}
+
+/******************************************************************/
+
+void
 nm_ip6_config_set_mss (NMIP6Config *config, guint32 mss)
 {
 	NMIP6ConfigPrivate *priv = NM_IP6_CONFIG_GET_PRIVATE (config);
@@ -1636,6 +1755,12 @@ nm_ip6_config_hash (const NMIP6Config *config, GChecksum *sum, gboolean dns_only
 		s = nm_ip6_config_get_search (config, i);
 		g_checksum_update (sum, (const guint8 *) s, strlen (s));
 	}
+
+	for (i = 0; i < nm_ip6_config_get_num_options (config); i++) {
+		s = nm_ip6_config_get_option (config, i);
+		g_checksum_update (sum, (const guint8 *) s, strlen (s));
+	}
+
 }
 
 /**
@@ -1690,6 +1815,7 @@ nm_ip6_config_init (NMIP6Config *config)
 	priv->nameservers = g_array_new (FALSE, TRUE, sizeof (struct in6_addr));
 	priv->domains = g_ptr_array_new_with_free_func (g_free);
 	priv->searches = g_ptr_array_new_with_free_func (g_free);
+	priv->options = g_ptr_array_new_with_free_func (g_free);
 }
 
 static void
@@ -1704,6 +1830,7 @@ finalize (GObject *object)
 	g_array_unref (priv->nameservers);
 	g_ptr_array_unref (priv->domains);
 	g_ptr_array_unref (priv->searches);
+	g_ptr_array_unref (priv->options);
 
 	G_OBJECT_CLASS (nm_ip6_config_parent_class)->finalize (object);
 }
@@ -1925,6 +2052,9 @@ get_property (GObject *object, guint prop_id,
 	case PROP_SEARCHES:
 		g_value_set_boxed (value, priv->searches);
 		break;
+	case PROP_OPTIONS:
+		g_value_set_boxed (value, priv->options);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -2005,6 +2135,11 @@ nm_ip6_config_class_init (NMIP6ConfigClass *config_class)
 	                        G_PARAM_STATIC_STRINGS);
 	obj_properties[PROP_SEARCHES] =
 	    g_param_spec_boxed (NM_IP6_CONFIG_SEARCHES, "", "",
+	                        DBUS_TYPE_G_ARRAY_OF_STRING,
+	                        G_PARAM_READABLE |
+	                        G_PARAM_STATIC_STRINGS);
+	obj_properties[PROP_OPTIONS] =
+	    g_param_spec_boxed (NM_IP6_CONFIG_OPTIONS, "", "",
 	                        DBUS_TYPE_G_ARRAY_OF_STRING,
 	                        G_PARAM_READABLE |
 	                        G_PARAM_STATIC_STRINGS);

@@ -43,6 +43,9 @@
     <property name="Searches" type="as" access="read">
       <tp:docstring>A list of dns searches.</tp:docstring>
     </property>
+    <property name="Options" type="as" access="read">
+      <tp:docstring>A list of dns options.</tp:docstring>
+    </property>
 
     <signal name="PropertiesChanged">
       <arg name="properties" type="a{sv}" tp:type="String_Variant_Map">
