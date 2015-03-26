@@ -29,6 +29,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <linux/fs.h>
@@ -268,7 +270,7 @@ dispatch_netconfig (char **searches,
                     char **nis_servers,
                     GError **error)
 {
-	char *str, *tmp;
+	char *str;
 	GPid pid;
 	gint fd;
 	int ret;
