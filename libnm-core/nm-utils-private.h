@@ -48,4 +48,8 @@ char **     _nm_utils_ptrarray_to_strv (GPtrArray *ptrarray);
 
 char *      _nm_utils_hwaddr_canonical_or_invalid (const char *mac, gssize length);
 
+gboolean    _nm_utils_dns_option_parse (const char *str, char **name, gboolean *numeric);
+gboolean    _nm_utils_dns_option_validate (const char *name, gboolean numeric, gboolean ipv6);
+gboolean    _nm_utils_dns_option_check_duplicate (GPtrArray *array, const char *name);
+
 #endif

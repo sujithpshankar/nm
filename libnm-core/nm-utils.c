@@ -144,6 +144,29 @@ static const struct IsoLangToEncodings isoLangEntries2[] =
 static GHashTable * langToEncodings5 = NULL;
 static GHashTable * langToEncodings2 = NULL;
 
+typedef struct {
+	const char *name;
+	gboolean numeric;
+	gboolean ipv6_only;
+} DNSOptionDesc;
+
+static const DNSOptionDesc dns_option_descs[] = {
+	{ "debug",                 FALSE,   FALSE },
+	{ "ndots",                 TRUE,    FALSE },
+	{ "timeout",               TRUE,    FALSE },
+	{ "attempts",              TRUE,    FALSE },
+	{ "rotate",                FALSE,   FALSE },
+	{ "no-check-names",        FALSE,   FALSE },
+	{ "inet6",                 FALSE,   TRUE },
+	{ "ip6-bytestring",        FALSE,   TRUE },
+	{ "ip6-dotint",            FALSE,   TRUE },
+	{ "no-ip6-dotint",         FALSE,   TRUE },
+	{ "edns0",                 FALSE,   FALSE },
+	{ "single-request",        FALSE,   FALSE },
+	{ "single-request-reopen", FALSE,   FALSE },
+	{ NULL,                    FALSE,   FALSE }
+};
+
 static void
 init_lang_to_encodings_hash (void)
 {
@@ -3404,5 +3427,109 @@ _nm_utils_ascii_str_to_int64 (const char *str, guint base, gint64 min, gint64 ma
 	if (G_UNLIKELY (str_free))
 		g_free (str_free);
 	return v;
+}
+
+/**
+ * _nm_utils_dns_option_parse
+ * @str: option string
+ * @name: (out): on return will contain the option name
+ * @numeric: (out) (allow-none): whether the option has a numeric argument
+ *
+ * Parses a DNS option in the form "name" or "name:number"
+ *
+ * Returns: %TRUE when the parsing was successfully done, %FALSE otherwise
+ */
+gboolean _nm_utils_dns_option_parse(const char *str, char **name,
+                                    gboolean *numeric)
+{
+	char **tokens, *ptr;
+	gboolean ret;
+
+	g_return_val_if_fail (str != NULL, FALSE);
+	g_return_val_if_fail (name != NULL, FALSE);
+
+	tokens = g_strsplit (str, ":", 2);
+	if (numeric)
+		*numeric = FALSE;
+
+	if (g_strv_length (tokens) == 1) {
+		*name = g_strdup (tokens[0]);
+		ret = TRUE;
+		goto out;
+	}
+
+	/* Numeric option */
+
+	if (!tokens[1][0]) {
+		ret = FALSE;
+		goto out;
+	}
+
+	for (ptr = tokens[1]; *ptr; ptr++) {
+		if (!g_ascii_isdigit (*ptr)) {
+			ret = FALSE;
+			goto out;
+		}
+	}
+
+	*name = g_strdup (tokens[0]);
+	if (numeric)
+		*numeric = TRUE;
+	ret = TRUE;
+out:
+	g_strfreev (tokens);
+	return ret;
+}
+
+/**
+ * _nm_utils_dns_option_validate
+ * @name: option name
+ * @numeric: whether the option has a numeric argument
+ * @ipv6: whether the option refers to a IPv6 connection
+ *
+ * Checks if a DNS option is valid
+ *
+ * Returns: %TRUE if the option is valid, %FALSE otherwise
+ */
+gboolean _nm_utils_dns_option_validate(const char *name, gboolean numeric,
+                                       gboolean ipv6)
+{
+	const DNSOptionDesc *desc;
+
+	for (desc = dns_option_descs; desc->name; desc++) {
+		if (!strcmp (name, desc->name) &&
+		    numeric == desc->numeric &&
+		    (!desc->ipv6_only || ipv6))
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+/**
+ * _nm_utils_dns_option_check_duplicate
+ * @array: an array of strings
+ * @name: name of a DNS option
+ *
+ * Checks if a DNS option with name @name is already present in the array
+ *
+ * Returns: %TRUE if the option is not present, %FALSE otherwise
+ */
+gboolean _nm_utils_dns_option_check_duplicate(GPtrArray *array, const char *name)
+{
+	gboolean ret;
+	char *tmp_name;
+	int i;
+
+	for (i = 0; i < array->len; i++) {
+		_nm_utils_dns_option_parse (array->pdata[i], &tmp_name, NULL);
+		ret = strcmp (tmp_name, name);
+		g_free (tmp_name);
+
+		if (!ret)
+			return FALSE;
+	}
+
+	return TRUE;
 }
 
