@@ -730,7 +730,7 @@ of its latest state.
 .B device - show and manage network interfaces
 .br
 .TP
-.SS \fICOMMAND\fP := { status | show | connect | disconnect | delete | wifi }
+.SS \fICOMMAND\fP := { status | show | connect | disconnect | delete | monitor | wifi }
 .sp
 .RS
 .TP
@@ -768,6 +768,13 @@ this only works for software devices like bonds, bridges, teams, etc.
 Hardware devices (like Ethernet) cannot be deleted by the command.
 .br
 If '--wait' option is not specified, the default timeout will be 10 seconds.
+.TP
+.B monitor [<ifname>] ...
+.br
+Monitor device activity. This command prints a line whenever the specified devices
+change state.
+.br
+Monitors all devices in case no interface is specified.
 .TP
 .B wifi [list [ifname <ifname>] [bssid <BSSID>]]
 .br
