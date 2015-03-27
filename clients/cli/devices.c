@@ -1538,7 +1538,7 @@ do_device_connect (NmCli *nmc, int argc, char **argv)
 	 * till connect_device_cb() is called, giving NM time to check our permissions.
 	 */
 	nmc->nowait_flag = (nmc->timeout == 0);
-	nmc->should_wait = TRUE;
+	nmc->should_wait++;
 
 	/* Create secret agent */
 	nmc->secret_agent = nm_secret_agent_simple_new ("nmcli-connect");
@@ -1755,7 +1755,7 @@ do_device_disconnect (NmCli *nmc, int argc, char **argv)
 	                  G_CALLBACK (device_removed_cb), info);
 
 	nmc->nowait_flag = (nmc->timeout == 0);
-	nmc->should_wait = TRUE;
+	nmc->should_wait++;
 
 	for (iter = queue; iter; iter = g_slist_next (iter)) {
 		device = iter->data;
@@ -1876,7 +1876,7 @@ do_device_delete (NmCli *nmc, int argc, char **argv)
 	                  G_CALLBACK (device_removed_cb), info);
 
 	nmc->nowait_flag = (nmc->timeout == 0);
-	nmc->should_wait = TRUE;
+	nmc->should_wait++;
 
 	for (iter = queue; iter; iter = g_slist_next (iter)) {
 		device = iter->data;
@@ -2465,7 +2465,7 @@ do_device_wifi_connect_network (NmCli *nmc, int argc, char **argv)
 	 * the user doesn't want to wait, in order to give NM time to check our
 	 * permissions. */
 	nmc->nowait_flag = (nmc->timeout == 0);
-	nmc->should_wait = TRUE;
+	nmc->should_wait++;
 
 	info = g_malloc0 (sizeof (AddAndActivateInfo));
 	info->nmc = nmc;
@@ -2513,8 +2513,6 @@ do_device_wifi_rescan (NmCli *nmc, int argc, char **argv)
 	const GPtrArray *devices;
 	int devices_idx;
 
-	nmc->should_wait = TRUE;
-
 	/* Get the parameters */
 	if (argc > 0) {
 		if (strcmp (*argv, "ifname") == 0) {
@@ -2550,9 +2548,8 @@ do_device_wifi_rescan (NmCli *nmc, int argc, char **argv)
 	nm_device_wifi_request_scan_async (NM_DEVICE_WIFI (device), NULL,
 	                                   request_rescan_cb, nmc);
 
-	return nmc->return_value;
+	nmc->should_wait++;
 error:
-	nmc->should_wait = FALSE;
 	return nmc->return_value;
 }
 
