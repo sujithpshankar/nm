@@ -149,6 +149,6 @@ gulong _nm_dbus_signal_connect_data (GDBusProxy *proxy,
                                      GClosureNotify destroy_data,
                                      GConnectFlags connect_flags);
 #define _nm_dbus_signal_connect(proxy, name, signature, handler, data) \
-	_nm_dbus_signal_connect_data (proxy, name, signature, handler, data, NULL, (GConnectFlags) 0);
+	_nm_dbus_signal_connect_data (proxy, name, signature, handler, data, NULL, (GConnectFlags) 0)
 
 #endif
