@@ -28,30 +28,35 @@
 typedef struct {
 	char *signal_name;
 	const GVariantType *signature;
-	GClosure *closure;
 } NMDBusSignalData;
 
 static void
-free_signal_data (gpointer data, GClosure *closure)
+dbus_signal_data_free (gpointer data, GClosure *closure)
 {
 	NMDBusSignalData *sd = data;
 
 	g_free (sd->signal_name);
-	g_closure_unref (sd->closure);
 	g_slice_free (NMDBusSignalData, sd);
 }
 
 static void
-nm_dbus_signal_handler (GDBusProxy *proxy,
-                        const char *sender_name,
-                        const char *signal_name,
-                        GVariant   *parameters,
-                        gpointer    user_data)
+dbus_signal_meta_marshal (GClosure     *closure,
+                          GValue       *return_value,
+                          guint         n_param_values,
+                          const GValue *param_values,
+                          gpointer      invocation_hint,
+                          gpointer      marshal_data)
 {
-	NMDBusSignalData *sd = user_data;
+	NMDBusSignalData *sd = marshal_data;
+	const char *signal_name;
+	GVariant *parameters, *param;
 	GValue *closure_params;
 	gsize n_params, i;
-	GVariant *param;
+
+	g_return_if_fail (n_param_values == 4);
+
+	signal_name = g_value_get_string (&param_values[2]);
+	parameters = g_value_get_variant (&param_values[3]);
 
 	if (strcmp (signal_name, sd->signal_name) != 0)
 		return;
@@ -59,7 +64,8 @@ nm_dbus_signal_handler (GDBusProxy *proxy,
 	if (sd->signature) {
 		if (!g_variant_is_of_type (parameters, sd->signature)) {
 			g_warning ("%p: got signal '%s' but parameters were of type '%s', not '%s'",
-			           proxy, signal_name, g_variant_get_type_string (parameters),
+			           g_value_get_object (&param_values[0]),
+			           signal_name, g_variant_get_type_string (parameters),
 			           g_variant_type_peek_string (sd->signature));
 			return;
 		}
@@ -70,7 +76,7 @@ nm_dbus_signal_handler (GDBusProxy *proxy,
 
 	closure_params = g_new0 (GValue, n_params);
 	g_value_init (&closure_params[0], G_TYPE_OBJECT);
-	g_value_set_object (&closure_params[0], proxy);
+	g_value_copy (&param_values[0], &closure_params[0]);
 
 	for (i = 1; i < n_params; i++) {
 		param = g_variant_get_child_value (parameters, i - 1);
@@ -84,11 +90,12 @@ nm_dbus_signal_handler (GDBusProxy *proxy,
 		g_variant_unref (param);
 	}
 
-	g_closure_invoke (sd->closure,
-	                  NULL,
-	                  n_params,
-	                  closure_params,
-	                  g_signal_get_invocation_hint (proxy));
+	g_cclosure_marshal_generic (closure,
+	                            NULL,
+	                            n_params,
+	                            closure_params,
+	                            invocation_hint,
+	                            NULL);
 
 	for (i = 0; i < n_params; i++)
 		g_value_unset (&closure_params[i]);
@@ -119,10 +126,10 @@ nm_dbus_signal_handler (GDBusProxy *proxy,
  * @c_handler should take only the #GDBusProxy and #gpointer arguments.
  *
  * Returns: the signal handler ID, which can be used with
- *   g_signal_handler_remove(). Note that other functions like
- *   g_signal_handlers_remove_matched() cannot be used with handlers connected
- *   via this function, since @c_handler and @data are not the actual handler
- *   and data passed to g_signal_connect_data().
+ *   g_signal_handler_remove(). Beware that because of the way the signal is
+ *   connected, you will not be able to remove it with
+ *   g_signal_handlers_disconnect_by_func(), although
+ *   g_signal_handlers_disconnect_by_data() will work correctly.
  */
 gulong
 _nm_dbus_signal_connect_data (GDBusProxy *proxy,
@@ -134,6 +141,9 @@ _nm_dbus_signal_connect_data (GDBusProxy *proxy,
                               GConnectFlags connect_flags)
 {
 	NMDBusSignalData *sd;
+	GClosure *closure;
+	gboolean swapped = !!(connect_flags & G_CONNECT_SWAPPED);
+	gboolean after = !!(connect_flags & G_CONNECT_AFTER);
 
 	g_return_val_if_fail (G_IS_DBUS_PROXY (proxy), 0);
 	g_return_val_if_fail (signal_name != NULL, 0);
@@ -143,14 +153,14 @@ _nm_dbus_signal_connect_data (GDBusProxy *proxy,
 	sd = g_slice_new (NMDBusSignalData);
 	sd->signal_name = g_strdup (signal_name);
 	sd->signature = signature;
-	sd->closure = g_cclosure_new (c_handler, data, destroy_data);
-	g_closure_sink (g_closure_ref (sd->closure));
-	g_closure_set_marshal (sd->closure, g_cclosure_marshal_generic);
 
-	return g_signal_connect_data (proxy, "g-signal",
-	                              G_CALLBACK (nm_dbus_signal_handler), sd,
-	                              free_signal_data, connect_flags);
-}	
+	closure = (swapped ? g_cclosure_new_swap : g_cclosure_new) (c_handler, data, destroy_data);
+	g_closure_set_marshal (closure, g_cclosure_marshal_generic);
+	g_closure_set_meta_marshal (closure, sd, dbus_signal_meta_marshal);
+	g_closure_add_finalize_notifier (closure, sd, dbus_signal_data_free);
+
+	return g_signal_connect_closure (proxy, "g-signal", closure, after);
+}
 
 /**
  * _nm_dbus_signal_connect:
