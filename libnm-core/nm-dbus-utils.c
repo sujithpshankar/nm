@@ -22,6 +22,7 @@
 
 #include <string.h>
 #include <gio/gio.h>
+#include <glib/gi18n-lib.h>
 
 #include "nm-core-internal.h"
 
@@ -186,7 +187,7 @@ typecheck_response (GVariant           **response,
 		 * @reply_type doesn't match.
 		 */
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT,
-		             "Method returned type '%s', but expected '%s'",
+		             _("Method returned type '%s', but expected '%s'"),
 		             g_variant_get_type_string (*response),
 		             g_variant_type_peek_string (reply_type));
 		g_clear_pointer (response, g_variant_unref);
