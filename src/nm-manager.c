@@ -4841,7 +4841,6 @@ static void
 nm_manager_init (NMManager *manager)
 {
 	NMManagerPrivate *priv = NM_MANAGER_GET_PRIVATE (manager);
-	DBusGConnection *g_connection;
 	guint i;
 	GFile *file;
 	GError *error = NULL;
@@ -4884,8 +4883,6 @@ nm_manager_init (NMManager *manager)
 	                  manager);
 
 	priv->vpn_manager = g_object_ref (nm_vpn_manager_get ());
-
-	g_connection = nm_dbus_manager_get_connection (priv->dbus_mgr);
 
 	/* avahi-autoipd stuff */
 	priv->aipd_proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
