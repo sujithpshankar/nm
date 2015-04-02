@@ -26,6 +26,7 @@
 
 #include "nm-firewall-manager.h"
 #include "nm-logging.h"
+#include "gsystem-local-alloc.h"
 
 #define NM_FIREWALL_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), \
                                               NM_TYPE_FIREWALL_MANAGER, \
@@ -287,14 +288,13 @@ name_owner_changed (GObject    *object,
                     gpointer    user_data)
 {
 	NMFirewallManager *self = NM_FIREWALL_MANAGER (user_data);
-	char *owner;
+	gs_free char *owner = NULL;
 
 	owner = g_dbus_proxy_get_name_owner (G_DBUS_PROXY (object));
 	if (owner) {
 		nm_log_dbg (LOGD_FIREWALL, "firewall started");
 		set_running (self, TRUE);
 		g_signal_emit (self, signals[STARTED], 0);
-		g_free (owner);
 	} else {
 		nm_log_dbg (LOGD_FIREWALL, "firewall stopped");
 		set_running (self, FALSE);
@@ -309,7 +309,7 @@ static void
 nm_firewall_manager_init (NMFirewallManager * self)
 {
 	NMFirewallManagerPrivate *priv = NM_FIREWALL_MANAGER_GET_PRIVATE (self);
-	char *owner;
+	gs_free char *owner = NULL;
 
 	priv->proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
 	                                             G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
@@ -324,7 +324,6 @@ nm_firewall_manager_init (NMFirewallManager * self)
 	                  G_CALLBACK (name_owner_changed), self);
 	owner = g_dbus_proxy_get_name_owner (priv->proxy);
 	priv->running = (owner != NULL);
-	g_free (owner);
 	nm_log_dbg (LOGD_FIREWALL, "firewall %s running", priv->running ? "is" : "is not" );
 
 }
