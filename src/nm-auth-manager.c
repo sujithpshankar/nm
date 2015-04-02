@@ -598,7 +598,10 @@ dispose (GObject *object)
 		g_clear_object (&priv->new_proxy_cancellable);
 	}
 
-	g_clear_object (&priv->proxy);
+	if (priv->proxy) {
+		g_signal_handlers_disconnect_by_data (priv->proxy, self);
+		g_clear_object (&priv->proxy);
+	}
 #endif
 
 	G_OBJECT_CLASS (nm_auth_manager_parent_class)->dispose (object);
