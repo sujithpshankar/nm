@@ -272,9 +272,9 @@ typedef struct {
 	/* Firewall */
 	NMFirewallPendingCall fw_call;
 
-	/* avahi-autoipd stuff */
+	/* AutoIP4 stuff */
 	sd_ipv4ll *     ipv4ll;
-	guint           aipd_timeout;
+	guint           autoip4_timeout;
 
 	/* IP6 configuration info */
 	NMIP6Config *  ip6_config;
@@ -2599,21 +2599,21 @@ nm_device_activate_schedule_stage2_device_config (NMDevice *self)
 }
 
 /*********************************************/
-/* avahi-autoipd stuff */
+/* AutoIP4 stuff */
 
 static void
-aipd_timeout_remove (NMDevice *self)
+autoip4_timeout_remove (NMDevice *self)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
 
-	if (priv->aipd_timeout) {
-		g_source_remove (priv->aipd_timeout);
-		priv->aipd_timeout = 0;
+	if (priv->autoip4_timeout) {
+		g_source_remove (priv->autoip4_timeout);
+		priv->autoip4_timeout = 0;
 	}
 }
 
 static void
-aipd_cleanup (NMDevice *self)
+autoip4_cleanup (NMDevice *self)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
 
@@ -2623,11 +2623,11 @@ aipd_cleanup (NMDevice *self)
 		priv->ipv4ll = sd_ipv4ll_unref (priv->ipv4ll);
 	}
 
-	aipd_timeout_remove (self);
+	autoip4_timeout_remove (self);
 }
 
 static NMIP4Config *
-aipd_get_ip4_config (NMDevice *self, guint32 lla)
+autoip4_get_ip4_config (NMDevice *self, guint32 lla)
 {
 	NMIP4Config *config = NULL;
 	NMPlatformIP4Address address;
@@ -2695,7 +2695,7 @@ nm_device_handle_autoip4_event (sd_ipv4ll *ll, int event, void *data)
 			return;
 		}
 
-		config = aipd_get_ip4_config (self, address.s_addr);
+		config = autoip4_get_ip4_config (self, address.s_addr);
 		if (!config) {
 			_LOGE (LOGD_AUTOIP4, "failed to get autoip config");
 			nm_device_state_changed (self, NM_DEVICE_STATE_FAILED,
@@ -2704,7 +2704,7 @@ nm_device_handle_autoip4_event (sd_ipv4ll *ll, int event, void *data)
 		}
 
 		if (priv->ip4_state == IP_CONF) {
-			aipd_timeout_remove (self);
+			autoip4_timeout_remove (self);
 			nm_device_activate_schedule_ip4_config_result (self, config);
 		} else if (priv->ip4_state == IP_DONE) {
 			if (!ip4_config_merge_and_apply (self, config, TRUE, &reason)) {
@@ -2725,15 +2725,15 @@ nm_device_handle_autoip4_event (sd_ipv4ll *ll, int event, void *data)
 }
 
 static gboolean
-aipd_timeout_cb (gpointer user_data)
+autoip4_timeout_cb (gpointer user_data)
 {
 	NMDevice *self = NM_DEVICE (user_data);
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
 
-	if (priv->aipd_timeout) {
-		_LOGI (LOGD_AUTOIP4, "avahi-autoipd timed out.");
-		priv->aipd_timeout = 0;
-		aipd_cleanup (self);
+	if (priv->autoip4_timeout) {
+		_LOGI (LOGD_AUTOIP4, "autoip4 timed out.");
+		priv->autoip4_timeout = 0;
+		autoip4_cleanup (self);
 
 		if (priv->ip4_state == IP_CONF)
 			nm_device_activate_schedule_ip4_config_timeout (self);
@@ -2743,14 +2743,14 @@ aipd_timeout_cb (gpointer user_data)
 }
 
 static NMActStageReturn
-aipd_start (NMDevice *self, NMDeviceStateReason *reason)
+autoip4_start (NMDevice *self, NMDeviceStateReason *reason)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
 	const char *mac;
 	struct ether_addr addr;
 	int r;
 
-	aipd_cleanup (self);
+	autoip4_cleanup (self);
 	nm_log_err (LOGD_DEVICE, "initializing ipv4ll");
 
 	r = sd_ipv4ll_new (&priv->ipv4ll);
@@ -2783,10 +2783,9 @@ aipd_start (NMDevice *self, NMDeviceStateReason *reason)
 		return NM_ACT_STAGE_RETURN_FAILURE;
 
 	_LOGI (LOGD_DEVICE | LOGD_AUTOIP4,
-	       "Activation: Stage 3 of 5 (IP Configure Start) started"
-	       " avahi-autoipd...");
+	       "Activation: Stage 3 of 5 (IP Configure Start) AutoIP4 started...");
 	/* Start a timeout to bound the address attempt */
-	priv->aipd_timeout = g_timeout_add_seconds (20, aipd_timeout_cb, self);
+	priv->autoip4_timeout = g_timeout_add_seconds (20, autoip4_timeout_cb, self);
 
 	return NM_ACT_STAGE_RETURN_POSTPONE;
 }
@@ -3435,7 +3434,7 @@ act_stage3_ip4_config_start (NMDevice *self,
 	if (strcmp (method, NM_SETTING_IP4_CONFIG_METHOD_AUTO) == 0)
 		ret = dhcp4_start (self, connection, reason);
 	else if (strcmp (method, NM_SETTING_IP4_CONFIG_METHOD_LINK_LOCAL) == 0)
-		ret = aipd_start (self, reason);
+		ret = autoip4_start (self, reason);
 	else if (strcmp (method, NM_SETTING_IP4_CONFIG_METHOD_MANUAL) == 0) {
 		/* Use only IPv4 config from the connection data */
 		*out_config = nm_ip4_config_new (nm_device_get_ip_ifindex (self));
@@ -7364,7 +7363,7 @@ _cleanup_ip_pre (NMDevice *self, gboolean deconfigure)
 	linklocal6_cleanup (self);
 	addrconf6_cleanup (self);
 	dnsmasq_cleanup (self);
-	aipd_cleanup (self);
+	autoip4_cleanup (self);
 }
 
 static void
