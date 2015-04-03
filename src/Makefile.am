@@ -85,6 +85,10 @@ libsystemd_nm_la_SOURCES = \
 	systemd/libsystemd-network/dhcp6-protocol.h \
 	systemd/libsystemd-network/dhcp-lease-internal.h \
 	systemd/libsystemd-network/sd-dhcp6-client.c \
+	systemd/libsystemd-network/ipv4ll-internal.h \
+	systemd/libsystemd-network/sd-ipv4ll.c \
+	systemd/libsystemd-network/ipv4ll-packet.c \
+	systemd/libsystemd-network/ipv4ll-network.c \
 	systemd/shared/async.h \
 	systemd/shared/time-util.h \
 	systemd/shared/siphash24.h \
@@ -116,6 +120,7 @@ libsystemd_nm_la_SOURCES = \
 	systemd/systemd/sd-dhcp6-client.h \
 	systemd/systemd/sd-event.h \
 	systemd/systemd/_sd-common.h \
+	systemd/systemd/sd-ipv4ll.h \
 	systemd/nm-sd-adapt.h \
 	systemd/nm-sd-adapt.c
 
