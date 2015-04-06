@@ -167,7 +167,7 @@ static void supplicant_iface_new_bss_cb (NMSupplicantInterface * iface,
 
 static void supplicant_iface_bss_updated_cb (NMSupplicantInterface *iface,
                                              const char *object_path,
-                                             GHashTable *properties,
+                                             GVariant *properties,
                                              NMDeviceWifi *self);
 
 static void supplicant_iface_bss_removed_cb (NMSupplicantInterface *iface,
@@ -1926,7 +1926,7 @@ supplicant_iface_new_bss_cb (NMSupplicantInterface *iface,
 static void
 supplicant_iface_bss_updated_cb (NMSupplicantInterface *iface,
                                  const char *object_path,
-                                 GHashTable *properties,
+                                 GVariant *properties,
                                  NMDeviceWifi *self)
 {
 	NMDeviceState state;
@@ -1936,7 +1936,7 @@ supplicant_iface_bss_updated_cb (NMSupplicantInterface *iface,
 	g_return_if_fail (object_path != NULL);
 	g_return_if_fail (properties != NULL);
 
-	/* Ignore new APs when unavailable or unamnaged */
+	/* Ignore new APs when unavailable or unmanaged */
 	state = nm_device_get_state (NM_DEVICE (self));
 	if (state <= NM_DEVICE_STATE_UNAVAILABLE)
 		return;
