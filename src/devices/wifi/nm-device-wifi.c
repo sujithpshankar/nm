@@ -1547,7 +1547,6 @@ merge_scanned_ap (NMDeviceWifi *self,
 			            nm_device_get_iface (NM_DEVICE (self)),
 			            MAC_ARG (bssid->ether_addr_octet),
 			            nm_utils_escape_ssid (ssid->data, ssid->len));
-			nm_ap_set_broadcast (merge_ap, FALSE);
 		} else {
 			/* Didn't have an entry for this AP in the database */
 			nm_log_dbg (LOGD_WIFI_SCAN, "(%s): failed to match hidden AP " MAC_FMT,
@@ -2550,9 +2549,7 @@ act_stage1_prepare (NMDevice *dev, NMDeviceStateReason *reason)
 	ap = nm_ap_new_fake_from_connection (connection);
 	g_return_val_if_fail (ap != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
-	if (nm_ap_get_mode (ap) == NM_802_11_MODE_INFRA)
-		nm_ap_set_broadcast (ap, FALSE);
-	else if (nm_ap_is_hotspot (ap))
+	if (nm_ap_is_hotspot (ap))
 		nm_ap_set_address (ap, (const struct ether_addr *) nm_device_get_hw_address (dev, NULL));
 
 	nm_ap_export_to_dbus (ap);
