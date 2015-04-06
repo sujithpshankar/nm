@@ -32,6 +32,7 @@
 
 #include "nm-setting-wireless.h"
 #include "nm-glib-compat.h"
+#include "gsystem-local-alloc.h"
 
 #include "nm-access-point-glue.h"
 
@@ -383,14 +384,12 @@ security_from_vardict (GVariant *security)
 	return flags;
 }
 
-NMAccessPoint *
-nm_ap_new_from_properties (const char *supplicant_path, GVariant *properties)
+void
+nm_ap_update_from_properties (NMAccessPoint *ap,
+                              const char *supplicant_path,
+                              GVariant *properties)
 {
-	const char bad_bssid1[ETH_ALEN] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	const char bad_bssid2[ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-	const struct ether_addr *addr;
 	const guint8 *bytes;
-	NMAccessPoint *ap;
 	GVariant *v;
 	gsize len;
 	gboolean b = FALSE;
@@ -398,9 +397,8 @@ nm_ap_new_from_properties (const char *supplicant_path, GVariant *properties)
 	gint16 i16;
 	guint16 u16;
 
-	g_return_val_if_fail (properties != NULL, NULL);
-
-	ap = nm_ap_new ();
+	g_return_if_fail (ap != NULL);
+	g_return_if_fail (properties != NULL);
 
 	g_object_freeze_notify (G_OBJECT (ap));
 
@@ -439,6 +437,9 @@ nm_ap_new_from_properties (const char *supplicant_path, GVariant *properties)
 		g_variant_unref (v);
 	}
 
+	if (!nm_ap_get_ssid (ap))
+		nm_ap_set_broadcast (ap, FALSE);
+
 	v = g_variant_lookup_value (properties, "BSSID", G_VARIANT_TYPE_BYTESTRING);
 	if (v) {
 		bytes = g_variant_get_fixed_array (v, &len, 1);
@@ -475,22 +476,33 @@ nm_ap_new_from_properties (const char *supplicant_path, GVariant *properties)
 		g_variant_unref (v);
 	}
 
-	nm_ap_set_supplicant_path (ap, supplicant_path);
-
-	/* ignore APs with invalid BSSIDs */
-	addr = nm_ap_get_address (ap);
-	if (   !(memcmp (addr->ether_addr_octet, bad_bssid1, ETH_ALEN))
-	    || !(memcmp (addr->ether_addr_octet, bad_bssid2, ETH_ALEN))) {
-		g_object_unref (ap);
-		return NULL;
-	}
+	if (!nm_ap_get_supplicant_path (ap))
+		nm_ap_set_supplicant_path (ap, supplicant_path);
 
 	nm_ap_set_last_seen (ap, nm_utils_get_monotonic_timestamp_s ());
 
-	if (!nm_ap_get_ssid (ap))
-		nm_ap_set_broadcast (ap, FALSE);
-
 	g_object_thaw_notify (G_OBJECT (ap));
+}
+
+NMAccessPoint *
+nm_ap_new_from_properties (const char *supplicant_path, GVariant *properties)
+{
+	NMAccessPoint *ap;
+	const struct ether_addr *addr;
+
+	g_return_val_if_fail (supplicant_path != NULL, NULL);
+	g_return_val_if_fail (properties != NULL, NULL);
+
+	ap = nm_ap_new ();
+
+	nm_ap_update_from_properties (ap, supplicant_path, properties);
+
+	/* ignore APs with invalid BSSIDs */
+	addr = nm_ap_get_address (ap);
+	if (!nm_ethernet_address_is_valid (addr)) {
+		g_object_unref (ap);
+		return NULL;
+	}
 
 	return ap;
 }
