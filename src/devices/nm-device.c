@@ -8436,10 +8436,13 @@ constructor (GType type,
 	if (NM_DEVICE_GET_CLASS (self)->get_generic_capabilities)
 		priv->capabilities |= NM_DEVICE_GET_CLASS (self)->get_generic_capabilities (self);
 
-	if (priv->ifindex > 0)
-		nm_platform_link_get_driver_info (NM_PLATFORM_GET, priv->ifindex, &priv->driver_version, &priv->firmware_version);
-	else if (priv->ifindex <= 0 && !nm_device_has_capability (self, NM_DEVICE_CAP_IS_NON_KERNEL))
-		_LOGW (LOGD_HW, "failed to look up interface index");
+	if (priv->ifindex > 0) {
+		nm_platform_link_get_driver_info (NM_PLATFORM_GET,
+		                                  priv->ifindex,
+		                                  NULL,
+		                                  &priv->driver_version,
+		                                  &priv->firmware_version);
+	}
 
 	/* Watch for external IP config changes */
 	platform = nm_platform_get ();
