@@ -2715,7 +2715,11 @@ nm_platform_link_cmp (const NMPlatformLink *a, const NMPlatformLink *b)
 	_CMP_FIELD (a, b, inet6_addr_gen_mode_inv);
 	_CMP_FIELD (a, b, inet6_token.is_valid);
 	_CMP_FIELD_STR_INTERNED (a, b, kind);
-	_CMP_FIELD_STR0 (a, b, udi);
+
+	/* udi is not an interned string, but NMRefString. Hence,
+	 * do a pointer comparison first. */
+	_CMP_FIELD_STR_INTERNED (a, b, udi);
+
 	_CMP_FIELD_STR_INTERNED (a, b, driver);
 	if (a->addr.len)
 		_CMP_FIELD_MEMCMP_LEN (a, b, addr.data, a->addr.len);
