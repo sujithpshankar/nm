@@ -37,6 +37,7 @@ noinst_PROGRAMS = \
 	test-link-linux \
 	test-address-fake \
 	test-address-linux \
+	test-general \
 	test-route-fake \
 	test-route-linux \
 	test-cleanup-fake \
@@ -110,12 +111,19 @@ test_cleanup_linux_CPPFLAGS = \
 test_cleanup_linux_LDADD = $(PLATFORM_LDADD)
 
 
+test_general_SOURCES = \
+	test-general.c
+test_general_LDADD = \
+	$(top_builddir)/src/libNetworkManager.la
+
+
 @VALGRIND_RULES@
 TESTS = \
 	test-address-fake \
 	test-address-linux \
 	test-cleanup-fake \
 	test-cleanup-linux \
+	test-general \
 	test-link-fake \
 	test-link-linux \
 	test-route-fake \
