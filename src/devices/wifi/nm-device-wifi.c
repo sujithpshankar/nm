@@ -1065,7 +1065,7 @@ ap_list_dump (NMDeviceWifi *self)
 	nm_log_dbg (LOGD_WIFI_SCAN, "Current AP list:");
 	sorted = get_sorted_ap_list (self);
 	for (iter = sorted; iter; iter = iter->next)
-		nm_ap_dump (NM_AP (iter->data), "List AP: ");
+		nm_ap_dump (NM_AP (iter->data), "List AP: ", nm_device_get_iface (NM_DEVICE (self)));
 	g_slist_free (sorted);
 	nm_log_dbg (LOGD_WIFI_SCAN, "Current AP list: done");
 }
@@ -1688,7 +1688,7 @@ supplicant_iface_new_bss_cb (NMSupplicantInterface *iface,
 
 	ap = nm_ap_new_from_properties (object_path, properties);
 	if (ap) {
-		nm_ap_dump (ap, "New AP: ");
+		nm_ap_dump (ap, "New AP: ", nm_device_get_iface (NM_DEVICE (self)));
 
 		/* Add the AP to the device's AP list */
 		merge_scanned_ap (self, ap, object_path, properties);
