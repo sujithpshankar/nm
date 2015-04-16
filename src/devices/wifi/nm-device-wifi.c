@@ -128,7 +128,7 @@ struct _NMDeviceWifiPrivate {
 	gint32            scheduled_scan_time;
 	guint8            scan_interval; /* seconds */
 	guint             pending_scan_id;
-	guint             scanlist_cull_id;
+	guint             ap_dump_id;
 	gboolean          requested_scan;
 
 	NMSupplicantManager   *sup_mgr;
@@ -185,8 +185,6 @@ static void supplicant_iface_notify_scanning_cb (NMSupplicantInterface * iface,
 static void supplicant_iface_notify_current_bss (NMSupplicantInterface *iface,
                                                  GParamSpec *pspec,
                                                  NMDeviceWifi *self);
-
-static void schedule_scanlist_cull (NMDeviceWifi *self);
 
 static gboolean request_wireless_scan (gpointer user_data);
 
@@ -324,9 +322,9 @@ supplicant_interface_release (NMDeviceWifi *self)
 	            nm_device_get_iface (NM_DEVICE (self)),
 	            priv->scan_interval);
 
-	if (priv->scanlist_cull_id) {
-		g_source_remove (priv->scanlist_cull_id);
-		priv->scanlist_cull_id = 0;
+	if (priv->ap_dump_id) {
+		g_source_remove (priv->ap_dump_id);
+		priv->ap_dump_id = 0;
 	}
 
 	if (priv->sup_iface) {
@@ -1457,11 +1455,6 @@ supplicant_iface_scan_done_cb (NMSupplicantInterface *iface,
 	priv->last_scan = nm_utils_get_monotonic_timestamp_s ();
 	schedule_scan (self, success);
 
-	/* Ensure that old APs get removed, which otherwise only
-	 * happens when there are new BSSes.
-	 */
-	schedule_scanlist_cull (self);
-
 	if (priv->requested_scan) {
 		priv->requested_scan = FALSE;
 		nm_device_remove_pending_action (NM_DEVICE (self), "scan", TRUE);
@@ -1473,15 +1466,14 @@ supplicant_iface_scan_done_cb (NMSupplicantInterface *iface,
  *
  */
 
-static void
-ap_list_dump (NMDeviceWifi *self)
+static gboolean
+ap_list_dump (gpointer user_data)
 {
+	NMDeviceWifi *self = NM_DEVICE_WIFI (user_data);
 	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
 	GSList *sorted, *iter;
 
-	if (!nm_logging_enabled (LOGL_DEBUG, LOGD_WIFI_SCAN))
-		return;
-
+	priv->ap_dump_id = 0;
 	nm_log_dbg (LOGD_WIFI_SCAN, "APs: [now:%u last:%u next:%u]",
 	            nm_utils_get_monotonic_timestamp_s (),
 	            priv->last_scan,
@@ -1490,9 +1482,20 @@ ap_list_dump (NMDeviceWifi *self)
 	for (iter = sorted; iter; iter = iter->next)
 		nm_ap_dump (NM_AP (iter->data), "  ", nm_device_get_iface (NM_DEVICE (self)));
 	g_slist_free (sorted);
+	return G_SOURCE_REMOVE;
 }
 
-#define WPAS_REMOVED_TAG "supplicant-removed"
+static void
+schedule_ap_list_dump (NMDeviceWifi *self)
+{
+	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
+
+	if (!nm_logging_enabled (LOGL_DEBUG, LOGD_WIFI_SCAN))
+		return;
+	if (priv->ap_dump_id)
+		g_source_remove (priv->ap_dump_id);
+	priv->ap_dump_id = g_timeout_add_seconds (1, ap_list_dump, self);
+}
 
 static void
 try_fill_ssid_for_hidden_ap (NMAccessPoint *ap)
@@ -1526,24 +1529,44 @@ try_fill_ssid_for_hidden_ap (NMAccessPoint *ap)
 #define MAC_ARG(x) ((guint8*)(x))[0],((guint8*)(x))[1],((guint8*)(x))[2],((guint8*)(x))[3],((guint8*)(x))[4],((guint8*)(x))[5]
 
 static void
-merge_scanned_ap (NMDeviceWifi *self,
-                  NMAccessPoint *merge_ap,
-                  const char *supplicant_path,
-                  GVariant *properties)
+supplicant_iface_new_bss_cb (NMSupplicantInterface *iface,
+                             const char *object_path,
+                             GVariant *properties,
+                             NMDeviceWifi *self)
 {
 	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
+	NMDeviceState state;
+	NMAccessPoint *ap;
 	NMAccessPoint *found_ap = NULL;
 	const GByteArray *ssid;
 	const struct ether_addr *bssid;
 
+	g_return_if_fail (self != NULL);
+	g_return_if_fail (properties != NULL);
+	g_return_if_fail (iface != NULL);
+
+	/* Ignore new APs when unavailable, unmanaged, or in AP mode */
+	state = nm_device_get_state (NM_DEVICE (self));
+	if (state <= NM_DEVICE_STATE_UNAVAILABLE)
+		return;
+	if (NM_DEVICE_WIFI_GET_PRIVATE (self)->mode == NM_802_11_MODE_AP)
+		return;
+
+	ap = nm_ap_new_from_properties (object_path, properties);
+	if (!ap) {
+		nm_log_warn (LOGD_WIFI_SCAN, "(%s): invalid AP properties received",
+		             nm_device_get_iface (NM_DEVICE (self)));
+		return;
+	}
+
 	/* Let the manager try to fill in the SSID from seen-bssids lists */
-	bssid = nm_ap_get_address (merge_ap);
-	ssid = nm_ap_get_ssid (merge_ap);
+	bssid = nm_ap_get_address (ap);
+	ssid = nm_ap_get_ssid (ap);
 	if (!ssid || nm_utils_is_empty_ssid (ssid->data, ssid->len)) {
 		/* Try to fill the SSID from the AP database */
-		try_fill_ssid_for_hidden_ap (merge_ap);
+		try_fill_ssid_for_hidden_ap (ap);
 
-		ssid = nm_ap_get_ssid (merge_ap);
+		ssid = nm_ap_get_ssid (ap);
 		if (ssid && (nm_utils_is_empty_ssid (ssid->data, ssid->len) == FALSE)) {
 			/* Yay, matched it, no longer treat as hidden */
 			nm_log_dbg (LOGD_WIFI_SCAN, "(%s): matched hidden AP " MAC_FMT " => '%s'",
@@ -1558,156 +1581,28 @@ merge_scanned_ap (NMDeviceWifi *self,
 		}
 	}
 
-	found_ap = get_ap_by_supplicant_path (self, supplicant_path);
-	if (!found_ap)
-		found_ap = nm_ap_match_in_hash (merge_ap, priv->aps);
+	found_ap = get_ap_by_supplicant_path (self, object_path);
 	if (found_ap) {
-		nm_log_dbg (LOGD_WIFI_SCAN, "(%s): merging AP '%s' " MAC_FMT " (%p) with existing (%p)",
-		            nm_device_get_iface (NM_DEVICE (self)),
-		            ssid ? nm_utils_escape_ssid (ssid->data, ssid->len) : "(none)",
-		            MAC_ARG (bssid->ether_addr_octet),
-		            merge_ap,
-		            found_ap);
-
-		nm_ap_update_from_properties (found_ap, supplicant_path, properties);
-		nm_ap_set_fake (found_ap, FALSE);
-		g_object_set_data (G_OBJECT (found_ap), WPAS_REMOVED_TAG, NULL);
+		nm_ap_dump (ap, "updated ", nm_device_get_iface (NM_DEVICE (self)));
+		nm_ap_update_from_properties (found_ap, object_path, properties);
 	} else {
-		/* New entry in the list */
-		nm_log_dbg (LOGD_WIFI_SCAN, "(%s): adding new AP '%s' " MAC_FMT " (%p)",
-		            nm_device_get_iface (NM_DEVICE (self)),
-		            ssid ? nm_utils_escape_ssid (ssid->data, ssid->len) : "(none)",
-		            MAC_ARG (bssid->ether_addr_octet),
-		            merge_ap);
-
-		g_object_ref (merge_ap);
-		nm_ap_export_to_dbus (merge_ap);
-		g_hash_table_insert (priv->aps, (gpointer) nm_ap_get_dbus_path (merge_ap), merge_ap);
-		emit_ap_added_removed (self, ACCESS_POINT_ADDED, merge_ap, TRUE);
+		nm_ap_dump (ap, "added   ", nm_device_get_iface (NM_DEVICE (self)));
+		nm_ap_export_to_dbus (ap);
+		g_hash_table_insert (priv->aps,
+		                     (gpointer) nm_ap_get_dbus_path (ap),
+		                     g_object_ref (ap));
+		emit_ap_added_removed (self, ACCESS_POINT_ADDED, ap, TRUE);
 	}
-}
 
-static gboolean
-cull_scan_list (NMDeviceWifi *self)
-{
-	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
-	gint32 now = nm_utils_get_monotonic_timestamp_s ();
-	guint32 removed = 0, total = 0;
-	GHashTableIter iter;
-	NMAccessPoint *ap;
+	g_object_unref (ap);
 
-	priv->scanlist_cull_id = 0;
-
-	nm_log_dbg (LOGD_WIFI_SCAN, "(%s): checking scan list for outdated APs",
-	            nm_device_get_iface (NM_DEVICE (self)));
-
-	/* Walk the access point list and remove any access points older than
-	 * three times the inactive scan interval.
+	/* Update the current AP if the supplicant notified a current BSS change
+	 * before it sent the current BSS's scan result.
 	 */
-	g_hash_table_iter_init (&iter, priv->aps);
-	while (g_hash_table_iter_next (&iter, NULL, (gpointer) &ap)) {
-		const guint prune_interval_s = SCAN_INTERVAL_MAX * 3;
-		gint32 last_seen;
+	if (g_strcmp0 (nm_supplicant_interface_get_current_bss (iface), object_path) == 0)
+		supplicant_iface_notify_current_bss (priv->sup_iface, NULL, self);
 
-		/* Don't cull the associated AP or manually created APs */
-		if (ap == priv->current_ap)
-			continue;
-		g_assert (!nm_ap_get_fake (ap)); /* only the current_ap can be fake */
-
-		/* Don't cull APs still known to the supplicant.  Since the supplicant
-		 * doesn't yet emit property updates for "last seen" we have to rely
-		 * on changing signal strength for updating "last seen".  But if the
-		 * AP's strength doesn't change we won't get any updates for the AP,
-		 * and we'll end up here even if the AP was still found by the
-		 * supplicant in the last scan.
-		 */
-		if (   nm_ap_get_supplicant_path (ap)
-		    && g_object_get_data (G_OBJECT (ap), WPAS_REMOVED_TAG) == NULL)
-			continue;
-
-		last_seen = nm_ap_get_last_seen (ap);
-		if (!last_seen || last_seen + prune_interval_s < now) {
-			const GByteArray *ssid = nm_ap_get_ssid (ap);
-			const struct ether_addr *bssid;
-
-			bssid = nm_ap_get_address (ap);
-			nm_log_dbg (LOGD_WIFI_SCAN,
-				        "   removing %02x:%02x:%02x:%02x:%02x:%02x (%s%s%s)",
-				        bssid->ether_addr_octet[0], bssid->ether_addr_octet[1],
-				        bssid->ether_addr_octet[2], bssid->ether_addr_octet[3],
-				        bssid->ether_addr_octet[4], bssid->ether_addr_octet[5],
-				        ssid ? "'" : "",
-				        ssid ? nm_utils_escape_ssid (ssid->data, ssid->len) : "(none)",
-				        ssid ? "'" : "");
-			emit_ap_added_removed (self, ACCESS_POINT_REMOVED, ap, FALSE);
-			g_hash_table_iter_remove (&iter);
-			removed++;
-		}
-	}
-
-	nm_log_dbg (LOGD_WIFI_SCAN, "(%s): removed %d APs (of %d)",
-	            nm_device_get_iface (NM_DEVICE (self)),
-	            removed, total);
-
-	ap_list_dump (self);
-
-	if(removed > 0)
-	    nm_device_recheck_available_connections (NM_DEVICE (self));
-
-	return FALSE;
-}
-
-static void
-schedule_scanlist_cull (NMDeviceWifi *self)
-{
-	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
-
-	/* Cull the scan list after the last request for it has come in */
-	if (priv->scanlist_cull_id)
-		g_source_remove (priv->scanlist_cull_id);
-	priv->scanlist_cull_id = g_timeout_add_seconds (4, (GSourceFunc) cull_scan_list, self);
-}
-
-static void
-supplicant_iface_new_bss_cb (NMSupplicantInterface *iface,
-                             const char *object_path,
-                             GVariant *properties,
-                             NMDeviceWifi *self)
-{
-	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
-	NMDeviceState state;
-	NMAccessPoint *ap;
-
-	g_return_if_fail (self != NULL);
-	g_return_if_fail (properties != NULL);
-	g_return_if_fail (iface != NULL);
-
-	/* Ignore new APs when unavailable, unmanaged, or in AP mode */
-	state = nm_device_get_state (NM_DEVICE (self));
-	if (state <= NM_DEVICE_STATE_UNAVAILABLE)
-		return;
-	if (NM_DEVICE_WIFI_GET_PRIVATE (self)->mode == NM_802_11_MODE_AP)
-		return;
-
-	ap = nm_ap_new_from_properties (object_path, properties);
-	if (ap) {
-		nm_ap_dump (ap, "New AP: ", nm_device_get_iface (NM_DEVICE (self)));
-
-		/* Add the AP to the device's AP list */
-		merge_scanned_ap (self, ap, object_path, properties);
-		g_object_unref (ap);
-
-		/* Update the current AP if the supplicant notified a current BSS change
-		 * before it sent the current BSS's scan result.
-		 */
-		if (g_strcmp0 (nm_supplicant_interface_get_current_bss (iface), object_path) == 0)
-			supplicant_iface_notify_current_bss (priv->sup_iface, NULL, self);
-	} else
-		nm_log_warn (LOGD_WIFI_SCAN, "(%s): invalid AP properties received",
-		             nm_device_get_iface (NM_DEVICE (self)));
-
-	/* Remove outdated access points */
-	schedule_scanlist_cull (self);
+	schedule_ap_list_dump (self);
 }
 
 static void
@@ -1728,13 +1623,12 @@ supplicant_iface_bss_updated_cb (NMSupplicantInterface *iface,
 	if (state <= NM_DEVICE_STATE_UNAVAILABLE)
 		return;
 
-	/* Update the AP's last-seen property */
 	ap = get_ap_by_supplicant_path (self, object_path);
-	if (ap)
+	if (ap) {
+		nm_ap_dump (ap, "updated ", nm_device_get_iface (NM_DEVICE (self)));
 		nm_ap_update_from_properties (ap, object_path, properties);
-
-	/* Remove outdated access points */
-	schedule_scanlist_cull (self);
+		schedule_ap_list_dump (self);
+	}
 }
 
 static void
@@ -1742,27 +1636,19 @@ supplicant_iface_bss_removed_cb (NMSupplicantInterface *iface,
                                  const char *object_path,
                                  NMDeviceWifi *self)
 {
+	NMDeviceWifiPrivate *priv;
 	NMAccessPoint *ap;
 
 	g_return_if_fail (self != NULL);
 	g_return_if_fail (object_path != NULL);
 
+	priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
 	ap = get_ap_by_supplicant_path (self, object_path);
-	if (ap) {
-		gint32 now = nm_utils_get_monotonic_timestamp_s ();
-		gint32 last_seen = nm_ap_get_last_seen (ap);
-
-		/* We don't know when the supplicant last saw the AP's beacons,
-		 * it could be two minutes or it could be 2 seconds.  Because the
-		 * supplicant doesn't send property change notifications if the
-		 * AP's other properties don't change, our last-seen time may be
-		 * much older the supplicant's, and the AP would be immediately
-		 * removed from the list on the next cleanup.  So update the
-		 * last-seen time to ensure the AP sticks around for at least
-		 * one more periodic scan.
-		 */
-		nm_ap_set_last_seen (ap, MAX (last_seen, now - SCAN_INTERVAL_MAX));
-		g_object_set_data (G_OBJECT (ap), WPAS_REMOVED_TAG, GUINT_TO_POINTER (TRUE));
+	if (ap && ap != priv->current_ap) {
+		nm_ap_dump (ap, "removed ", nm_device_get_iface (NM_DEVICE (self)));
+		emit_ap_added_removed (self, ACCESS_POINT_REMOVED, ap, TRUE);
+		g_hash_table_remove (priv->aps, nm_ap_get_dbus_path (ap));
+		schedule_ap_list_dump (self);
 	}
 }
 
