@@ -29,7 +29,7 @@ if test "$GCC" = "yes" -a "$set_more_warnings" != "no"; then
 		      -Wfloat-equal -Wno-unused-parameter -Wno-sign-compare \
 		      -fno-strict-aliasing -Wno-unused-but-set-variable \
 		      -Wundef -Wimplicit-function-declaration \
-		      -Wpointer-arith -Winit-self \
+		      -Wpointer-arith -Winit-self -Wno-deprecated-declarations \
 		      -Wmissing-include-dirs -Waggregate-return; do
 		SAVE_CFLAGS="$CFLAGS"
 		CFLAGS="$CFLAGS $EXTRA_CFLAGS $option"
