@@ -3411,7 +3411,7 @@ validate_dns_option (const char *name, gboolean numeric, gboolean ipv6,
 	const DNSOptionDesc *desc;
 
 	if (!option_descs)
-		return TRUE;
+		return !!*name;
 
 	for (desc = option_descs; desc->name; desc++) {
 		if (!strcmp (name, desc->name) &&
@@ -3452,6 +3452,8 @@ _nm_utils_dns_option_validate (const char *option, char **out_name,
 
 	if (out_name)
 		*out_name = NULL;
+	if (out_value)
+		*out_value = -1;
 
 	if (!option[0])
 		return FALSE;
@@ -3477,13 +3479,16 @@ _nm_utils_dns_option_validate (const char *option, char **out_name,
 		}
 	}
 
-	ret = validate_dns_option (tokens[0], TRUE, ipv6, option_descs);
-
-	if (ret) {
-		if (out_name)
-			*out_name = g_strdup (tokens[0]);
-		if (out_value)
-			*out_value = atol (tokens[1]);
+	ret = FALSE;
+	if (validate_dns_option (tokens[0], TRUE, ipv6, option_descs)) {
+		int value = _nm_utils_ascii_str_to_int64 (tokens[1], 10, 0, G_MAXINT32, -1);
+		if (value >= 0) {
+			if (out_name)
+				*out_name = g_strdup (tokens[0]);
+			if (out_value)
+				*out_value = value;
+			ret = TRUE;
+		}
 	}
 out:
 	g_strfreev (tokens);
