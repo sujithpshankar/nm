@@ -2886,6 +2886,13 @@ test_setting_ip4_changed_signal (void)
 	nm_setting_ip_config_add_route (s_ip4, route);
 	ASSERT_CHANGED (nm_setting_ip_config_clear_routes (s_ip4));
 
+	ASSERT_CHANGED (nm_setting_ip_config_add_dns_option (s_ip4, "debug"));
+	ASSERT_CHANGED (nm_setting_ip_config_remove_dns_option (s_ip4, 0));
+
+	g_test_expect_message ("libnm", G_LOG_LEVEL_CRITICAL, "*i < priv->dns_options->len*");
+	ASSERT_UNCHANGED (nm_setting_ip_config_remove_dns_option (s_ip4, 1));
+	g_test_assert_expected_messages ();
+
 	nm_ip_address_unref (addr);
 	nm_ip_route_unref (route);
 	g_object_unref (connection);
