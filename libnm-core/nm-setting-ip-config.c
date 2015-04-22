@@ -2189,12 +2189,13 @@ set_property (GObject *object, guint prop_id,
 		break;
 	case PROP_DNS_OPTIONS:
 		strv = g_value_get_boxed (value);
-		for (i = 0; strv && strv[i]; i++) {
-			if (!_nm_utils_dns_option_validate (strv[i], NULL, NULL, FALSE, NULL))
-				return;
-		}
 		g_ptr_array_unref (priv->dns_options);
-		priv->dns_options = _nm_utils_strv_to_ptrarray (strv);
+		priv->dns_options = g_ptr_array_new_with_free_func (g_free);
+		for (i = 0; strv && strv[i]; i++) {
+			if (   _nm_utils_dns_option_validate (strv[i], NULL, NULL, FALSE, NULL)
+			    && _nm_utils_dns_option_find_idx (priv->dns_options, strv[i]) < 0)
+				g_ptr_array_add (priv->dns_options, g_strdup (strv[i]));
+		}
 		break;
 	case PROP_ADDRESSES:
 		g_ptr_array_unref (priv->addresses);
