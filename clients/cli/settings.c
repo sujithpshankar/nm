@@ -3310,11 +3310,6 @@ nmc_property_ipv4_set_dns_options (NMSetting *setting, const char *prop, const c
 	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
 	strv = nmc_strsplit_set (val, " \t,", 0);
-	if (!verify_string_list (strv, prop, nmc_util_is_domain, error)) {
-		g_strfreev (strv);
-		return FALSE;
-	}
-
 	while (strv && strv[i])
 		nm_setting_ip_config_add_dns_option (NM_SETTING_IP_CONFIG (setting), strv[i++]);
 	g_strfreev (strv);
@@ -3649,7 +3644,7 @@ DEFINE_REMOVER_INDEX_OR_VALUE (nmc_property_ipv6_remove_dns_search,
                                nm_setting_ip_config_remove_dns_search,
                                _validate_and_remove_ipv6_dns_search)
 
-/* 'dns-search' */
+/* 'dns-options' */
 static gboolean
 nmc_property_ipv6_set_dns_options (NMSetting *setting, const char *prop, const char *val, GError **error)
 {
@@ -3659,11 +3654,6 @@ nmc_property_ipv6_set_dns_options (NMSetting *setting, const char *prop, const c
 	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
 	strv = nmc_strsplit_set (val, " \t,", 0);
-	if (!verify_string_list (strv, prop, nmc_util_is_domain, error)) {
-		g_strfreev (strv);
-		return FALSE;
-	}
-
 	while (strv && strv[i])
 		nm_setting_ip_config_add_dns_option (NM_SETTING_IP_CONFIG (setting), strv[i++]);
 	g_strfreev (strv);
