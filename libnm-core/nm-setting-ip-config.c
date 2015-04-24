@@ -1417,6 +1417,8 @@ nm_setting_ip_config_clear_dns_searches (NMSettingIPConfig *setting)
  * @setting: the #NMSettingIPConfig
  *
  * Returns: the number of configured DNS options
+ *
+ * Since: 1.2
  **/
 guint
 nm_setting_ip_config_get_num_dns_options (NMSettingIPConfig *setting)
@@ -1432,6 +1434,8 @@ nm_setting_ip_config_get_num_dns_options (NMSettingIPConfig *setting)
  * @i: index number of the DNS options
  *
  * Returns: the DNS option at index @i
+ *
+ * Since: 1.2
  **/
 const char *
 nm_setting_ip_config_get_dns_option (NMSettingIPConfig *setting, guint i)
@@ -1453,6 +1457,8 @@ nm_setting_ip_config_get_dns_option (NMSettingIPConfig *setting, guint i)
  *
  * Returns: the index, greater or equal than @i, of the first valid
  * DNS option, or -1 if no valid option is found
+ *
+ * Since: 1.2
  **/
 gint
 nm_setting_ip_config_next_valid_dns_option (NMSettingIPConfig *setting, guint i)
@@ -1481,6 +1487,8 @@ nm_setting_ip_config_next_valid_dns_option (NMSettingIPConfig *setting, guint i)
  * Adds a new DNS option to the setting.
  *
  * Returns: %TRUE if the DNS option was added; %FALSE otherwise
+ *
+ * Since: 1.2
  **/
 gboolean
 nm_setting_ip_config_add_dns_option (NMSettingIPConfig *setting,
@@ -1510,6 +1518,8 @@ nm_setting_ip_config_add_dns_option (NMSettingIPConfig *setting,
  * @i: index number of the DNS option
  *
  * Removes the DNS option at index @i.
+ *
+ * Since: 1.2
  **/
 void
 nm_setting_ip_config_remove_dns_option (NMSettingIPConfig *setting, int i)
@@ -1533,6 +1543,8 @@ nm_setting_ip_config_remove_dns_option (NMSettingIPConfig *setting, int i)
  * Removes the DNS option @dns_option.
  *
  * Returns: %TRUE if the DNS option was found and removed; %FALSE if it was not.
+ *
+ * Since: 1.2
  **/
 gboolean
 nm_setting_ip_config_remove_dns_option_by_value (NMSettingIPConfig *setting,
@@ -1561,6 +1573,8 @@ nm_setting_ip_config_remove_dns_option_by_value (NMSettingIPConfig *setting,
  * @setting: the #NMSettingIPConfig
  *
  * Removes all configured DNS options.
+ *
+ * Since: 1.2
  **/
 void
 nm_setting_ip_config_clear_dns_options (NMSettingIPConfig *setting)
@@ -2386,6 +2400,8 @@ nm_setting_ip_config_class_init (NMSettingIPConfigClass *setting_class)
 	 * NMSettingIPConfig:dns-options:
 	 *
 	 * Array of DNS options.
+	 *
+	 * Since: 1.2
 	 **/
 	g_object_class_install_property
 		(object_class, PROP_DNS_OPTIONS,
