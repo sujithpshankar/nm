@@ -1429,9 +1429,9 @@ nm_setting_ip_config_get_num_dns_options (NMSettingIPConfig *setting)
 }
 
 /**
- * nm_setting_ip_config_get_dns_options:
+ * nm_setting_ip_config_get_dns_option:
  * @setting: the #NMSettingIPConfig
- * @i: index number of the DNS options
+ * @i: index number of the DNS option
  *
  * Returns: the DNS option at index @i
  *
