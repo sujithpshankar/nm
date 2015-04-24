@@ -3428,13 +3428,13 @@ validate_dns_option (const char *name, gboolean numeric, gboolean ipv6,
  * @option: option string
  * @out_name: (out) (allow-none) the option name
  * @out_value: (out) (allow-none) the option value
- * @ipv6_only: whether the option refers to a IPv6 configuration
+ * @ipv6: whether the option refers to a IPv6 configuration
  * @option_descs: (allow-none) an array of DNSOptionDesc which describes the
  * valid options
  *
  * Parses a DNS option in the form "name" or "name:number" and, if
  * @option_descs is not NULL, checks that the option conforms to one
- * of the provided descriptors. If @option_descs is NULL @ipv6_only is
+ * of the provided descriptors. If @option_descs is NULL @ipv6 is
  * not considered.
  *
  * Returns: %TRUE when the parsing was successful and the option is valid,
