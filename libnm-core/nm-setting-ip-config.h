@@ -158,6 +158,7 @@ void         nm_ip_route_set_attribute       (NMIPRoute   *route,
 #define NM_SETTING_DNS_OPTION_EDNS0                     "edns0"
 #define NM_SETTING_DNS_OPTION_SINGLE_REQUEST            "single-request"
 #define NM_SETTING_DNS_OPTION_SINGLE_REQUEST_REOPEN     "single-request-reopen"
+#define NM_SETTING_DNS_OPTION_NO_TLD_QUERY              "no-tld-query"
 
 struct _NMSettingIPConfig {
 	NMSetting parent;

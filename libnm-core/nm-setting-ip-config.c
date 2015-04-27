@@ -60,6 +60,7 @@ static const DNSOptionDesc dns_option_descs[] = {
 	{ NM_SETTING_DNS_OPTION_EDNS0,                 FALSE,   FALSE },
 	{ NM_SETTING_DNS_OPTION_SINGLE_REQUEST,        FALSE,   FALSE },
 	{ NM_SETTING_DNS_OPTION_SINGLE_REQUEST_REOPEN, FALSE,   FALSE },
+	{ NM_SETTING_DNS_OPTION_NO_TLD_QUERY,          FALSE,   FALSE },
 	{ NULL,                                        FALSE,   FALSE }
 };
 
