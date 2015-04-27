@@ -2346,8 +2346,8 @@ _nm_platform_link_get_by_address (NMPlatform *platform,
 		struct nl_addr *nladdr;
 		gconstpointer hwaddr;
 
-	    nladdr = rtnl_link_get_addr (rtnl_link);
-	    if (nladdr && (nl_addr_get_len (nladdr) == length)) {
+		nladdr = rtnl_link_get_addr (rtnl_link);
+		if (nladdr && (nl_addr_get_len (nladdr) == length)) {
 			hwaddr = nl_addr_get_binary_addr (nladdr);
 			if (hwaddr && memcmp (hwaddr, address, length) == 0) {
 				if (link_is_announceable (platform, rtnl_link))

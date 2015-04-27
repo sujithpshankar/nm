@@ -508,7 +508,6 @@ nm_platform_link_get (NMPlatform *self, int ifindex, NMPlatformLink *link)
 /**
  * nm_platform_link_get_by_address:
  * @self: platform instance
- * @ifindex: ifindex of the link
  * @address: a pointer to the binary hardware address
  * @length: the size of @address in bytes
  * @link: (out): output NMPlatformLink structure.
