@@ -2813,7 +2813,7 @@ ipv4ll_start (NMDevice *self, NMDeviceStateReason *reason)
 	}
 
 	ifindex = nm_device_get_ip_ifindex (self);
-	mac = nm_platform_link_get_address (ifindex, &mac_len);
+	mac = nm_platform_link_get_address (NM_PLATFORM_GET, ifindex, &mac_len);
 	if (!mac || mac_len != ETH_ALEN) {
 		_LOGE (LOGD_AUTOIP4, "IPv4LL: can't retrieve hardware address");
 		goto fail;
