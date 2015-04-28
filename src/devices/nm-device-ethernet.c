@@ -68,6 +68,7 @@ G_DEFINE_TYPE (NMDeviceEthernet, nm_device_ethernet, NM_TYPE_DEVICE)
 #define WIRED_SECRETS_TRIES "wired-secrets-tries"
 
 #define PPPOE_RECONNECT_DELAY 7
+#define PPPOE_ENCAP_OVERHEAD  8 /* 2 bytes for PPP, 6 for PPPoE */
 
 static NMSetting *device_get_setting (NMDevice *device, GType setting_type);
 
@@ -1297,6 +1298,31 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *reason)
 		                                         G_CALLBACK (dcb_carrier_changed),
 		                                         NULL);
 		ret = NM_ACT_STAGE_RETURN_POSTPONE;
+	}
+
+	/* PPPoE setup */
+	if (!strcmp (connection_type, NM_SETTING_PPPOE_SETTING_NAME)) {
+		NMSettingPpp *s_ppp;
+
+		s_ppp = (NMSettingPpp *) device_get_setting (device, NM_TYPE_SETTING_PPP);
+		if (s_ppp) {
+			guint32 mtu = 0, mru = 0, mxu;
+			const char *iface;
+			int ifindex;
+
+			mtu = nm_setting_ppp_get_mtu (s_ppp);
+			mru = nm_setting_ppp_get_mru (s_ppp);
+			mxu = mru > mtu ? mru : mtu;
+			if (mxu) {
+				iface = nm_device_get_iface (device);
+				ifindex = nm_platform_link_get_ifindex (NM_PLATFORM_GET, iface);
+
+				_LOGD (LOGD_PPP, "set MTU to %u (PPP interface MRU %u, MTU %u)",
+				       mxu + PPPOE_ENCAP_OVERHEAD, mru, mtu);
+				nm_platform_link_set_mtu (NM_PLATFORM_GET, ifindex,
+				                          mxu + PPPOE_ENCAP_OVERHEAD);
+			}
+		}
 	}
 
 	return ret;
