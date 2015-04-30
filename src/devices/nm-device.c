@@ -2793,10 +2793,9 @@ static NMActStageReturn
 ipv4ll_start (NMDevice *self, NMDeviceStateReason *reason)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
-	struct ether_addr addr;
+	const struct ether_addr *addr;
 	int ifindex, r;
-	const char *mac;
-	size_t mac_len;
+	size_t addr_len;
 
 	ipv4ll_cleanup (self);
 
@@ -2813,14 +2812,13 @@ ipv4ll_start (NMDevice *self, NMDeviceStateReason *reason)
 	}
 
 	ifindex = nm_device_get_ip_ifindex (self);
-	mac = nm_platform_link_get_address (NM_PLATFORM_GET, ifindex, &mac_len);
-	if (!mac || mac_len != ETH_ALEN) {
+	addr = nm_platform_link_get_address (NM_PLATFORM_GET, ifindex, &addr_len);
+	if (!addr || addr_len != ETH_ALEN) {
 		_LOGE (LOGD_AUTOIP4, "IPv4LL: can't retrieve hardware address");
 		goto fail;
 	}
 
-	memcpy (&addr, mac, ETH_ALEN);
-	r = sd_ipv4ll_set_mac (priv->ipv4ll, &addr);
+	r = sd_ipv4ll_set_mac (priv->ipv4ll, addr);
 	if (r < 0) {
 		_LOGE (LOGD_AUTOIP4, "IPv4LL: set_mac() failed with error %d", r);
 		goto fail;
