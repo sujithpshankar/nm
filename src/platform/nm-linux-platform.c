@@ -988,7 +988,7 @@ init_link (NMPlatform *platform, NMPlatformLink *info, struct rtnl_link *rtnllin
 	if (udev_device) {
 		info->driver = nmp_utils_udev_get_driver (udev_device);
 		info->udi = g_udev_device_get_sysfs_path (udev_device);
-		info->initialized = TRUE;
+		info->is_in_udev = TRUE;
 	}
 
 	if (!info->driver)

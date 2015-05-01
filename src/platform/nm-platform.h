@@ -92,13 +92,19 @@ struct _NMPlatformLink {
 	const char *kind;
 
 	/* Beware: NMPlatform initializes this string with an allocated string.
-	 * Handle it properly (i.e. don't keep a reference to it). */
+	 * Handle it properly (i.e. don't keep a reference to it).
+	 * This property depends on @is_in_udev. */
 	const char *udi;
 
-	/* NMPlatform initializes this field with a static string. */
+	/* NMPlatform initializes this field with a static string.
+	 * This property depends on @is_in_udev. */
 	const char *driver;
 
-	gboolean initialized;
+	/* Whether the link is known in UDev. The fields @udi and
+	 * @driver change depending on whether the link is discovered
+	 * in UDev.*/
+	gboolean is_in_udev;
+
 	int master;
 	int parent;
 

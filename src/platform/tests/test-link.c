@@ -497,7 +497,7 @@ test_external (void)
 
 	success = nm_platform_link_get (NM_PLATFORM_GET, ifindex, &link);
 	g_assert (success);
-	if (!link.initialized) {
+	if (!link.is_in_udev) {
 		/* we still lack the notification via UDEV. Expect another link changed signal. */
 		wait_signal (link_changed);
 	}

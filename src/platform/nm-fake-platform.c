@@ -113,7 +113,7 @@ link_init (NMFakePlatformLink *device, int ifindex, int type, const char *name)
 	device->link.kind = type_to_type_name (type);
 	device->link.driver = type_to_type_name (type);
 	device->link.udi = device->udi = g_strdup_printf ("fake:%d", ifindex);
-	device->link.initialized = TRUE;
+	device->link.is_in_udev = TRUE;
 	if (name)
 		strcpy (device->link.name, name);
 	switch (device->link.type) {

@@ -1380,7 +1380,7 @@ device_link_changed (NMDevice *self, NMPlatformLink *info)
 		}
 	}
 
-	if (priv->ifindex > 0 && !priv->platform_link_initialized && info->initialized) {
+	if (priv->ifindex > 0 && !priv->platform_link_initialized && info->is_in_udev) {
 		priv->platform_link_initialized = TRUE;
 
 		if (nm_platform_link_get_unmanaged (NM_PLATFORM_GET, priv->ifindex, &platform_unmanaged)) {
@@ -8784,7 +8784,7 @@ set_property (GObject *object, guint prop_id,
 			priv->up = platform_device->up;
 			g_free (priv->driver);
 			priv->driver = g_strdup (platform_device->driver);
-			priv->platform_link_initialized = platform_device->initialized;
+			priv->platform_link_initialized = platform_device->is_in_udev;
 		}
 		break;
 	case PROP_UDI:
