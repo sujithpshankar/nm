@@ -42,6 +42,7 @@
 #include <nm-setting-team-port.h>
 #include "nm-core-internal.h"
 #include <nm-utils.h>
+#include <nm-utils-private.h>
 
 #include "nm-logging.h"
 #include "gsystem-local-alloc.h"
@@ -1841,7 +1842,7 @@ write_ip4_setting (NMConnection *connection, shvarFile *ifcfg, GError **error)
 	gint32 j;
 	guint32 i, n, num;
 	gint64 route_metric;
-	GString *searches, *options;
+	GString *searches;
 	gboolean success = FALSE;
 	gboolean fake_ip4 = FALSE;
 	const char *method = NULL;
@@ -2012,19 +2013,6 @@ write_ip4_setting (NMConnection *connection, shvarFile *ifcfg, GError **error)
 		g_string_free (searches, TRUE);
 	} else
 		svSetValue (ifcfg, "DOMAIN", NULL, FALSE);
-
-	num = nm_setting_ip_config_get_num_dns_options (s_ip4);
-	if (num > 0) {
-		options = g_string_new (NULL);
-		for (i = 0; i < num; i++) {
-			if (i > 0)
-				g_string_append_c (options, ' ');
-			g_string_append (options, nm_setting_ip_config_get_dns_option (s_ip4, i));
-		}
-		svSetValue (ifcfg, "RES_OPTIONS", options->str, FALSE);
-		g_string_free (options, TRUE);
-	} else
-		svSetValue (ifcfg, "RES_OPTIONS", NULL, FALSE);
 
 	/* DEFROUTE; remember that it has the opposite meaning from never-default */
 	svSetValue (ifcfg, "DEFROUTE",
@@ -2304,7 +2292,7 @@ write_ip6_setting (NMConnection *connection, shvarFile *ifcfg, GError **error)
 	char *addr_key;
 	char *tmp;
 	guint32 i, num, num4;
-	GString *searches, *options;
+	GString *searches;
 	NMIPAddress *addr;
 	const char *dns;
 	gint64 route_metric;
@@ -2413,22 +2401,6 @@ write_ip6_setting (NMConnection *connection, shvarFile *ifcfg, GError **error)
 		g_free (ip4_domains);
 	}
 
-	/* Write out DNS options - 'RES_OPTIONS' key is shared for both IPv4 and IPv6 domains */
-	num = nm_setting_ip_config_get_num_dns_options (s_ip6);
-	if (num > 0) {
-		char *ip4_options;
-		ip4_options = svGetValue (ifcfg, "RES_OPTIONS", FALSE);
-		options = g_string_new (ip4_options);
-		for (i = 0; i < num; i++) {
-			if (options->len > 0)
-				g_string_append_c (options, ' ');
-			g_string_append (options, nm_setting_ip_config_get_dns_option (s_ip6, i));
-		}
-		svSetValue (ifcfg, "RES_OPTIONS", options->str, FALSE);
-		g_string_free (options, TRUE);
-		g_free (ip4_options);
-	}
-
 	/* handle IPV6_DEFROUTE */
 	/* IPV6_DEFROUTE has the opposite meaning from 'never-default' */
 	if (nm_setting_ip_config_get_never_default(s_ip6))
@@ -2491,6 +2463,61 @@ write_ip6_setting (NMConnection *connection, shvarFile *ifcfg, GError **error)
 
 error:
 	return FALSE;
+}
+
+static void
+add_dns_option (GPtrArray *array, const char *option)
+{
+	if (_nm_utils_dns_option_find_idx (array, option) < 0)
+		g_ptr_array_add (array, (gpointer) option);
+}
+
+static gboolean
+write_res_options (NMConnection *connection, shvarFile *ifcfg, GError **error)
+{
+	NMSettingIPConfig *s_ip6;
+	NMSettingIPConfig *s_ip4;
+	const char *method;
+	int i, num_options;
+	GPtrArray *array;
+	GString *value;
+
+	s_ip4 = nm_connection_get_setting_ip4_config (connection);
+	s_ip6 = nm_connection_get_setting_ip6_config (connection);
+	array = g_ptr_array_new ();
+
+	if (s_ip4) {
+		method = nm_setting_ip_config_get_method (s_ip4);
+		if (g_strcmp0 (method, NM_SETTING_IP4_CONFIG_METHOD_DISABLED)) {
+			num_options = nm_setting_ip_config_get_num_dns_options (s_ip4);
+			for (i = 0; i < num_options; i++)
+				add_dns_option (array, nm_setting_ip_config_get_dns_option (s_ip4, i));
+		}
+	}
+
+	if (s_ip6) {
+		method = nm_setting_ip_config_get_method (s_ip6);
+		if (g_strcmp0 (method, NM_SETTING_IP6_CONFIG_METHOD_IGNORE)) {
+			num_options = nm_setting_ip_config_get_num_dns_options (s_ip6);
+			for (i = 0; i < num_options; i++)
+				add_dns_option (array, nm_setting_ip_config_get_dns_option (s_ip6, i));
+		}
+	}
+
+	if (array->len > 0) {
+		value = g_string_new (NULL);
+		for (i = 0; i < array->len; i++) {
+			if (i > 0)
+				g_string_append_c (value, ' ');
+			g_string_append (value, array->pdata[i]);
+		}
+		svSetValue (ifcfg, "RES_OPTIONS", value->str, FALSE);
+		g_string_free (value, TRUE);
+	} else
+		svSetValue (ifcfg, "RES_OPTIONS", NULL, FALSE);
+
+	g_ptr_array_unref (array);
+	return TRUE;
 }
 
 static char *
@@ -2639,6 +2666,9 @@ write_connection (NMConnection *connection,
 		write_ip4_aliases (connection, ifcfg_name);
 
 		if (!write_ip6_setting (connection, ifcfg, error))
+			goto out;
+
+		if (!write_res_options (connection, ifcfg, error))
 			goto out;
 	}
 
