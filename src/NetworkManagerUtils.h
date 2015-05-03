@@ -188,4 +188,10 @@ void nm_utils_array_remove_at_indexes (GArray *array, const guint *indexes_to_de
 
 void nm_utils_setpgid (gpointer unused);
 
+typedef const char *NMRefString;
+NMRefString nm_ref_string_new (const char *str);
+NMRefString nm_ref_string_ref (NMRefString nmstr);
+void nm_ref_string_unref (NMRefString nmstr);
+NMRefString nm_ref_string_replace (NMRefString nmstr, const char *str);
+
 #endif /* __NETWORKMANAGER_UTILS_H__ */
