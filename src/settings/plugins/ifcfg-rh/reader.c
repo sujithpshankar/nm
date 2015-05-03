@@ -683,7 +683,7 @@ parse_dns_options (NMSettingIPConfig *ip_config, char *value)
 		for (item = options; *item; item++) {
 			if (strlen (*item)) {
 				if (!nm_setting_ip_config_add_dns_option (ip_config, *item))
-					PARSE_WARNING ("duplicate DNS option '%s'", *item);
+					PARSE_WARNING ("can't add DNS option '%s'", *item);
 			}
 		}
 		g_strfreev (options);
@@ -1285,6 +1285,7 @@ make_ip6_setting (shvarFile *ifcfg,
 	char *value = NULL;
 	char *str_value;
 	char *route6_path = NULL;
+	char *dns_options = NULL;
 	gboolean ipv6init, ipv6forwarding, ipv6_autoconf, dhcp6 = FALSE;
 	char *method = NM_SETTING_IP6_CONFIG_METHOD_MANUAL;
 	char *ipv6addr, *ipv6addr_secondaries;
@@ -1318,6 +1319,7 @@ make_ip6_setting (shvarFile *ifcfg,
 		value = svGetValue (ifcfg, "DEVICE", FALSE);
 		ipv6_defaultgw = svGetValue (network_ifcfg, "IPV6_DEFAULTGW", FALSE);
 		ipv6_defaultdev = svGetValue (network_ifcfg, "IPV6_DEFAULTDEV", FALSE);
+		dns_options = svGetValue (network_ifcfg, "RES_OPTIONS", FALSE);
 
 		if (ipv6_defaultgw) {
 			default_dev = strchr (ipv6_defaultgw, '%');
@@ -1514,9 +1516,17 @@ make_ip6_setting (shvarFile *ifcfg,
 		g_free (route6_path);
 	}
 
+	/* DNS options */
+	value = svGetValue (ifcfg, "RES_OPTIONS", FALSE);
+	parse_dns_options (s_ip6, value);
+	parse_dns_options (s_ip6, dns_options);
+	g_free (value);
+	g_free (dns_options);
+
 	return NM_SETTING (s_ip6);
 
 error:
+	g_free (dns_options);
 	g_free (route6_path);
 	g_object_unref (s_ip6);
 	return NULL;
@@ -4678,35 +4688,6 @@ check_dns_search_domains (shvarFile *ifcfg, NMSetting *s_ip4, NMSetting *s_ip6)
 	}
 }
 
-static void
-check_dns_options (shvarFile *ifcfg, NMSetting *s_ip4, NMSetting *s_ip6)
-{
-	if (!s_ip6)
-		return;
-
-	/* If there is no IPv4 config or it doesn't contain DNS options,
-	 * read RES_OPTIONS and put them into IPv6.
-	 */
-	if (!s_ip4 || nm_setting_ip_config_get_num_dns_options (NM_SETTING_IP_CONFIG (s_ip4)) == 0) {
-		/* DNS options */
-		char *value = svGetValue (ifcfg, "RES_OPTIONS", FALSE);
-		if (value) {
-			char **options = g_strsplit (value, " ", 0);
-			if (options) {
-				char **item;
-				for (item = options; *item; item++) {
-					if (strlen (*item)) {
-						if (!nm_setting_ip_config_add_dns_option (NM_SETTING_IP_CONFIG (s_ip6), *item))
-							PARSE_WARNING ("duplicate DNS option '%s'", *item);
-					}
-				}
-				g_strfreev (options);
-			}
-			g_free (value);
-		}
-	}
-}
-
 static NMConnection *
 connection_from_file_full (const char *filename,
                            const char *network_file,  /* for unit tests only */
@@ -4876,9 +4857,6 @@ connection_from_file_full (const char *filename,
 	 * DOMAIN and put the values into IPv6 config instead.
 	 */
 	check_dns_search_domains (parsed, s_ip4, s_ip6);
-
-	/* The same for RES_OPTIONS */
-	check_dns_options (parsed, s_ip4, s_ip6);
 
 	/* Bridge port? */
 	s_port = make_bridge_port_setting (parsed);
