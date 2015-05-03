@@ -34,6 +34,7 @@ gboolean nmp_utils_ethtool_supports_vlans (const char *ifname);
 int nmp_utils_ethtool_get_peer_ifindex (const char *ifname);
 gboolean nmp_utils_ethtool_get_wake_on_lan (const char *ifname);
 
+gboolean nmp_utils_mii_supports_carrier_detect (const char *ifname);
 
 const char *nmp_utils_udev_get_driver (GUdevDevice *device);
 
