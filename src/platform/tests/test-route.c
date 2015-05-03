@@ -1,8 +1,11 @@
 #include "config.h"
 
+#include <linux/rtnetlink.h>
+
 #include "test-common.h"
 #include "nm-test-utils.h"
 #include "NetworkManagerUtils.h"
+#include "nm-platform-utils.h"
 
 #define DEVICE_NAME "nm-test-device"
 
@@ -177,6 +180,7 @@ test_ip4_route (void)
 	rts[0].gateway = INADDR_ANY;
 	rts[0].metric = metric;
 	rts[0].mss = mss;
+	rts[0].scope_nm = nmp_utils_ip_route_scope_native_to_nm (RT_SCOPE_LINK);
 	rts[1].source = NM_IP_CONFIG_SOURCE_USER;
 	rts[1].network = network;
 	rts[1].plen = plen;
@@ -184,6 +188,7 @@ test_ip4_route (void)
 	rts[1].gateway = gateway;
 	rts[1].metric = metric;
 	rts[1].mss = mss;
+	rts[1].scope_nm = nmp_utils_ip_route_scope_native_to_nm (RT_SCOPE_UNIVERSE);
 	rts[2].source = NM_IP_CONFIG_SOURCE_USER;
 	rts[2].network = 0;
 	rts[2].plen = 0;
@@ -191,8 +196,8 @@ test_ip4_route (void)
 	rts[2].gateway = gateway;
 	rts[2].metric = metric;
 	rts[2].mss = mss;
+	rts[2].scope_nm = nmp_utils_ip_route_scope_native_to_nm (RT_SCOPE_UNIVERSE);
 	g_assert_cmpint (routes->len, ==, 3);
-	g_assert (!memcmp (routes->data, rts, sizeof (rts)));
 	nmtst_platform_ip4_routes_equal ((NMPlatformIP4Route *) routes->data, rts, routes->len, TRUE);
 	g_array_unref (routes);
 
@@ -288,7 +293,6 @@ test_ip6_route (void)
 	rts[2].metric = nm_utils_ip6_route_metric_normalize (metric);
 	rts[2].mss = mss;
 	g_assert_cmpint (routes->len, ==, 3);
-	g_assert (!memcmp (routes->data, rts, sizeof (rts)));
 	nmtst_platform_ip6_routes_equal ((NMPlatformIP6Route *) routes->data, rts, routes->len, TRUE);
 	g_array_unref (routes);
 

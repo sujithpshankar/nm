@@ -46,6 +46,7 @@ test_ip6_config_LDADD = \
 
 test_route_manager_fake_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
+	$(GUDEV_CFLAGS) \
 	-I$(top_srcdir)/src/platform/tests \
 	-DSETUP=nm_fake_platform_setup \
 	-DKERNEL_HACKS=0
@@ -63,6 +64,7 @@ test_route_manager_linux_SOURCES = \
 
 test_route_manager_linux_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
+	$(GUDEV_CFLAGS) \
 	-I$(top_srcdir)/src/platform/tests \
 	-DSETUP=nm_linux_platform_setup \
 	-DKERNEL_HACKS=1

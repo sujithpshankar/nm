@@ -237,6 +237,10 @@ struct _NMPlatformIP4Route {
 	__NMPlatformIPRoute_COMMON;
 	in_addr_t network;
 	in_addr_t gateway;
+
+	/* The route scope, but converted to NM representation.
+	 * See nmp_utils_ip_route_scope_native_to_nm(). */
+	guint8 scope_nm;
 };
 G_STATIC_ASSERT (G_STRUCT_OFFSET (NMPlatformIPRoute, network_ptr) == G_STRUCT_OFFSET (NMPlatformIP4Route, network));
 
