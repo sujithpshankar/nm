@@ -22,12 +22,7 @@
 #define __NM_UTILS_PRIVATE_H__
 
 #include "nm-setting-private.h"
-
-typedef struct {
-	const char *name;
-	gboolean numeric;
-	gboolean ipv6_only;
-} DNSOptionDesc;
+#include "nm-setting-ip-config.h"
 
 gboolean    _nm_utils_string_slist_validate (GSList *list,
                                              const char **valid_values);

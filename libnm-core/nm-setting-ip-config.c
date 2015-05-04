@@ -46,7 +46,7 @@
  * related to IP addressing, routing, and Domain Name Service.
  **/
 
-static const DNSOptionDesc dns_option_descs[] = {
+const DNSOptionDesc dns_option_descs[] = {
 	{ NM_SETTING_DNS_OPTION_DEBUG,                 FALSE,   FALSE },
 	{ NM_SETTING_DNS_OPTION_NDOTS,                 TRUE,    FALSE },
 	{ NM_SETTING_DNS_OPTION_TIMEOUT,               TRUE,    FALSE },
