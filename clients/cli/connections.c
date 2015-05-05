@@ -6325,6 +6325,73 @@ extract_setting_and_property (const char *prompt, const char *line,
 		g_free (prop);
 }
 
+static char *is_property_valid (NMSetting *setting, const char *property, GError **error);
+static void
+get_setting_and_property (const char *prompt, const char *line,
+                          NMSetting **setting_out, char**property_out)
+{
+	const NameItem *valid_settings_arr;
+	const char *setting_name;
+	NMSetting *setting = NULL;
+	char *property = NULL;
+	char *sett = NULL, *prop = NULL;
+
+	extract_setting_and_property (prompt, line, &sett, &prop);
+	if (sett) {
+		valid_settings_arr = get_valid_settings_array (nmc_tab_completion.con_type);
+		setting_name = check_valid_name (sett, valid_settings_arr, NULL);
+		setting = nmc_setting_new_for_name (setting_name);
+	} else
+		setting = nmc_tab_completion.setting ? g_object_ref (nmc_tab_completion.setting) : NULL;
+
+	if (setting && prop)
+		property = is_property_valid (setting, prop, NULL);
+	else
+		property = g_strdup (nmc_tab_completion.property);
+
+	*setting_out = setting;
+	*property_out = property;
+
+	g_free (sett);
+	g_free (prop);
+}
+
+static const char **
+get_allowed_property_values (void)
+{
+	NMSetting *setting;
+	char *property;
+	const char **avals = NULL;
+
+	get_setting_and_property (rl_prompt, rl_line_buffer, &setting, &property);
+	if (setting && property)
+		avals = nmc_setting_get_property_allowed_values (setting, property);
+
+	if (setting)
+		g_object_unref (setting);
+	g_free (property);
+
+	return avals;
+}
+
+static gboolean
+should_complete_files (const char *prompt, const char *line)
+{
+	NMSetting *setting;
+	char *property;
+	gboolean is_filename = FALSE;
+
+	get_setting_and_property (prompt, line, &setting, &property);
+	if (setting && property)
+		is_filename = nm_setting_property_is_filename (setting, property);
+
+	if (setting)
+		g_object_unref (setting);
+	g_free (property);
+
+	return is_filename;
+}
+
 static gboolean
 _get_and_check_property (const char *prompt,
                          const char *line,
@@ -6347,27 +6414,6 @@ _get_and_check_property (const char *prompt,
 }
 
 static gboolean
-should_complete_files (const char *prompt, const char *line)
-{
-	const char *file_properties[] = {
-		/* '802-1x' properties */
-		"ca-cert",
-		"ca-path",
-		"client-cert",
-		"pac-file",
-		"phase2-ca-cert",
-		"phase2-ca-path",
-		"phase2-client-cert",
-		"private-key",
-		"phase2-private-key",
-		/* 'team' and 'team-port' properties */
-		"config",
-		NULL
-	};
-	return _get_and_check_property (prompt, line, file_properties, NULL, NULL);
-}
-
-static gboolean
 should_complete_vpn_uuids (const char *prompt, const char *line)
 {
 	const char *uuid_properties[] = {
@@ -6378,60 +6424,31 @@ should_complete_vpn_uuids (const char *prompt, const char *line)
 	return _get_and_check_property (prompt, line, uuid_properties, NULL, NULL);
 }
 
-static char *is_property_valid (NMSetting *setting, const char *property, GError **error);
-static const char **
-get_allowed_property_values (void)
+static gboolean
+should_complete_property_values (const char *prompt, const char *line,
+                                 gboolean *multi, gboolean *hash)
 {
-	const NameItem *valid_settings_arr;
-	const char *setting_name;
-	NMSetting *setting = NULL;
-	char *property = NULL;
-	char *sett = NULL, *prop = NULL;
-	const char **avals = NULL;
+	NMSetting *setting;
+	char *property;
+	gboolean is_enumeration = FALSE;
+	gboolean is_multi = FALSE;
+	gboolean is_hash = FALSE;
 
-	extract_setting_and_property (rl_prompt, rl_line_buffer, &sett, &prop);
-	if (sett) {
-		valid_settings_arr = get_valid_settings_array (nmc_tab_completion.con_type);
-		setting_name = check_valid_name (sett, valid_settings_arr, NULL);
-		setting = nmc_setting_new_for_name (setting_name);
-	} else
-		setting = nmc_tab_completion.setting ? g_object_ref (nmc_tab_completion.setting) : NULL;
+	get_setting_and_property (prompt, line, &setting, &property);
+	if (setting && property) {
+		is_enumeration = !!nm_setting_property_get_valid_values (setting, property);
+		is_multi = nm_setting_property_is_multi_value (setting, property);
+		is_hash = nm_setting_property_is_hash (setting, property);
+	}
 
-	if (setting && prop)
-		property = is_property_valid (setting, prop, NULL);
-	else
-		property = g_strdup (nmc_tab_completion.property);
-
-	if (setting && property)
-		avals = nmc_setting_get_property_allowed_values (setting, property);
-
-	g_free (sett);
-	g_free (prop);
 	if (setting)
 		g_object_unref (setting);
 	g_free (property);
-	return avals;
-}
 
-static gboolean
-should_complete_property_values (const char *prompt, const char *line, gboolean *multi)
-{
-	/* properties allowing multiple values */
-	const char *multi_props[] = {
-		/* '802-1x' properties */
-		NM_SETTING_802_1X_EAP,
-		/* '802-11-wireless-security' properties */
-		NM_SETTING_WIRELESS_SECURITY_PROTO,
-		NM_SETTING_WIRELESS_SECURITY_PAIRWISE,
-		NM_SETTING_WIRELESS_SECURITY_GROUP,
-		/* 'bond' properties */
-		NM_SETTING_BOND_OPTIONS,
-		/* 'ethernet' properties */
-		NM_SETTING_WIRED_S390_OPTIONS,
-		NULL
-	};
-	_get_and_check_property (prompt, line, NULL, multi_props, multi);
-	return get_allowed_property_values () != NULL;
+	*multi = is_multi;
+	*hash = is_hash;
+	return is_enumeration;
+
 }
 
 static char *
@@ -6469,6 +6486,9 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 	/* Restore standard append character to space */
 	rl_completion_append_character = ' ';
 
+	/* Use ' ' and '.' as word break characters */
+	rl_completer_word_break_characters = ". ";
+
 	/* Restore standard function for displaying matches */
 	rl_completion_display_matches_hook = NULL;
 
@@ -6498,7 +6518,7 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 		if (!strchr (prompt_tmp, '.')) {
 			int level = g_str_has_prefix (prompt_tmp, "nmcli>") ? 0 : 1;
 			const char *dot = strchr (line, '.');
-			gboolean multi;
+			gboolean multi, hash;
 
 			/* Main menu  - level 0,1 */
 			if (start == n1)
@@ -6522,9 +6542,13 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 						else if (should_complete_vpn_uuids (NULL, line)) {
 							rl_completion_display_matches_hook = uuid_display_hook;
 							generator_func = gen_vpn_uuids;
-						} else if (   should_complete_property_values (NULL, line, &multi)
-							   && (num == 3 || multi)) {
+						} else if (   should_complete_property_values (NULL, line, &multi, &hash)
+							   && (num == 3 || multi || hash)) {
 							generator_func = gen_property_values;
+							if (hash) {
+								rl_completion_append_character = '=';
+								rl_completer_word_break_characters = ", ";
+							}
 						}
 					}
 				} else if (  (   should_complete_cmd (line, end, "remove", &num, NULL)
@@ -6559,7 +6583,7 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 			if (start == n1)
 				generator_func = gen_nmcli_cmds_submenu;
 			else {
-				gboolean multi;
+				gboolean multi, hash;
 
 				if (   should_complete_cmd (line, end, "add", &num, NULL)
 				    || should_complete_cmd (line, end, "set", &num, NULL)) {
@@ -6568,9 +6592,13 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 					else if (should_complete_vpn_uuids (prompt_tmp, line)) {
 						rl_completion_display_matches_hook = uuid_display_hook;
 						generator_func = gen_vpn_uuids;
-					} else if (   should_complete_property_values (prompt_tmp, NULL, &multi)
-						   && (num <= 2 || multi)) {
+					} else if (   should_complete_property_values (prompt_tmp, NULL, &multi, &hash)
+						   && (num <= 2 || multi || hash)) {
 						generator_func = gen_property_values;
+						if (hash) {
+							rl_completion_append_character = '=';
+							rl_completer_word_break_characters = ", ";
+						}
 					}
 				}
 				if (should_complete_cmd (line, end, "print", &num, NULL) && num <= 2)
@@ -8587,8 +8615,6 @@ do_connection_edit (NmCli *nmc, int argc, char **argv)
 	/* Setup some readline completion stuff */
 	/* Set a pointer to an alternative function to create matches */
 	rl_attempted_completion_function = (rl_completion_func_t *) nmcli_editor_tab_completion;
-	/* Use ' ' and '.' as word break characters */
-	rl_completer_word_break_characters = ". ";
 
 	if (!con) {
 		if (con_id && !con_uuid && !con_path) {
