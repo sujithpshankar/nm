@@ -96,6 +96,12 @@ enum {
 	LAST_PROP
 };
 
+static const char *valid_values_app_fcoe_mode[] = {
+	NM_SETTING_DCB_FCOE_MODE_FABRIC,
+	NM_SETTING_DCB_FCOE_MODE_VN2VN,
+	NULL
+};
+
 /**
  * nm_setting_dcb_new:
  *
@@ -640,8 +646,8 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		return FALSE;
 	}
 
-	if (strcmp (priv->app_fcoe_mode, NM_SETTING_DCB_FCOE_MODE_FABRIC) &&
-	    strcmp (priv->app_fcoe_mode, NM_SETTING_DCB_FCOE_MODE_VN2VN)) {
+	if (   !priv->app_fcoe_mode
+	    || !_nm_utils_string_in_list (priv->app_fcoe_mode, valid_values_app_fcoe_mode)) {
 		g_set_error_literal (error,
 		                     NM_CONNECTION_ERROR,
 		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
@@ -912,6 +918,7 @@ nm_setting_dcb_class_init (NMSettingDcbClass *setting_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
 	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GParamSpec *pspec;
 
 	g_type_class_add_private (setting_class, sizeof (NMSettingDcbPrivate));
 
@@ -981,13 +988,14 @@ nm_setting_dcb_class_init (NMSettingDcbClass *setting_class)
 	 * description: FCoE controller mode.
 	 * ---end---
 	 */
-	g_object_class_install_property
-		(object_class, PROP_APP_FCOE_MODE,
-		 g_param_spec_string (NM_SETTING_DCB_APP_FCOE_MODE, "", "",
-		                      NM_SETTING_DCB_FCOE_MODE_FABRIC,
-		                      G_PARAM_READWRITE |
-		                      G_PARAM_CONSTRUCT |
-		                      G_PARAM_STATIC_STRINGS));
+	pspec = g_param_spec_string (NM_SETTING_DCB_APP_FCOE_MODE, "", "",
+	                             NM_SETTING_DCB_FCOE_MODE_FABRIC,
+	                             G_PARAM_READWRITE |
+	                             G_PARAM_CONSTRUCT |
+	                             G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_APP_FCOE_MODE, pspec);
+	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
+	                        valid_values_app_fcoe_mode);
 
 	/**
 	 * NMSettingDcb:app-iscsi-flags:

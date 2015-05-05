@@ -67,6 +67,18 @@ enum {
 	LAST_PROP
 };
 
+static const char *valid_values_protocol[] = {
+	NM_SETTING_ADSL_PROTOCOL_PPPOA,
+	NM_SETTING_ADSL_PROTOCOL_PPPOE,
+	NM_SETTING_ADSL_PROTOCOL_IPOATM,
+	NULL
+};
+static const char *valid_values_encapsulation[] = {
+	NM_SETTING_ADSL_ENCAPSULATION_VCMUX,
+	NM_SETTING_ADSL_ENCAPSULATION_LLC,
+	NULL
+};
+
 /**
  * nm_setting_adsl_new:
  *
@@ -200,9 +212,7 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 	}
 
 	if (   !priv->protocol
-	    || (   strcmp (priv->protocol, NM_SETTING_ADSL_PROTOCOL_PPPOA)
-	        && strcmp (priv->protocol, NM_SETTING_ADSL_PROTOCOL_PPPOE)
-	        && strcmp (priv->protocol, NM_SETTING_ADSL_PROTOCOL_IPOATM))){
+	    || !_nm_utils_string_in_list (priv->protocol, valid_values_protocol)) {
 		g_set_error (error,
 		             NM_CONNECTION_ERROR,
 		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
@@ -213,8 +223,7 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 	}
 
 	if (   priv->encapsulation
-	    && (   strcmp (priv->encapsulation, NM_SETTING_ADSL_ENCAPSULATION_VCMUX)
-	        && strcmp (priv->encapsulation, NM_SETTING_ADSL_ENCAPSULATION_LLC) )) {
+	    && !_nm_utils_string_in_list (priv->protocol, valid_values_encapsulation)) {
 		g_set_error (error,
 		             NM_CONNECTION_ERROR,
 		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
@@ -339,6 +348,7 @@ nm_setting_adsl_class_init (NMSettingAdslClass *setting_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
 	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GParamSpec *pspec;
 
 	g_type_class_add_private (setting_class, sizeof (NMSettingAdslPrivate));
 
@@ -394,24 +404,26 @@ nm_setting_adsl_class_init (NMSettingAdslClass *setting_class)
 	 *
 	 * ADSL connection protocol.  Can be "pppoa", "pppoe" or "ipoatm".
 	 **/
-	g_object_class_install_property
-		(object_class, PROP_PROTOCOL,
-		 g_param_spec_string (NM_SETTING_ADSL_PROTOCOL, "", "",
-		                      NULL,
-		                      G_PARAM_READWRITE |
-		                      G_PARAM_STATIC_STRINGS));
+	pspec = g_param_spec_string (NM_SETTING_ADSL_PROTOCOL, "", "",
+	                             NULL,
+	                             G_PARAM_READWRITE |
+	                             G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_PROTOCOL, pspec);
+	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
+	                        valid_values_protocol);
 
 	/**
 	 * NMSettingAdsl:encapsulation:
 	 *
 	 * Encapsulation of ADSL connection.  Can be "vcmux" or "llc".
 	 **/
-	g_object_class_install_property
-		(object_class, PROP_ENCAPSULATION,
-		 g_param_spec_string (NM_SETTING_ADSL_ENCAPSULATION, "", "",
-		                      NULL,
-		                      G_PARAM_READWRITE |
-		                      G_PARAM_STATIC_STRINGS));
+	pspec = g_param_spec_string (NM_SETTING_ADSL_ENCAPSULATION, "", "",
+	                             NULL,
+	                             G_PARAM_READWRITE |
+	                             G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_ENCAPSULATION, pspec);
+	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
+	                        valid_values_encapsulation);
 
 	/**
 	 * NMSettingAdsl:vpi:

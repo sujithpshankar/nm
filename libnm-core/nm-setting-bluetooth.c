@@ -62,6 +62,12 @@ enum {
 	LAST_PROP
 };
 
+static const char *valid_values_bluetooth_type[] = {
+	NM_SETTING_BLUETOOTH_TYPE_DUN,
+	NM_SETTING_BLUETOOTH_TYPE_PANU,
+	NULL
+};
+
 /**
  * nm_setting_bluetooth_new:
  *
@@ -139,8 +145,7 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		                     _("property is missing"));
 		g_prefix_error (error, "%s.%s: ", NM_SETTING_BLUETOOTH_SETTING_NAME, NM_SETTING_BLUETOOTH_TYPE);
 		return FALSE;
-	} else if (!g_str_equal (priv->type, NM_SETTING_BLUETOOTH_TYPE_DUN) &&
-	           !g_str_equal (priv->type, NM_SETTING_BLUETOOTH_TYPE_PANU)) {
+	} else if (!_nm_utils_string_in_list (priv->type, valid_values_bluetooth_type)) {
 		g_set_error (error,
 		             NM_CONNECTION_ERROR,
 		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
@@ -241,6 +246,7 @@ nm_setting_bluetooth_class_init (NMSettingBluetoothClass *setting_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
 	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GParamSpec *pspec;
 
 	g_type_class_add_private (setting_class, sizeof (NMSettingBluetoothPrivate));
 
@@ -275,11 +281,12 @@ nm_setting_bluetooth_class_init (NMSettingBluetoothClass *setting_class)
 	 * Either "dun" for Dial-Up Networking connections or "panu" for Personal
 	 * Area Networking connections to devices supporting the NAP profile.
 	 **/
-	g_object_class_install_property
-		(object_class, PROP_TYPE,
-		 g_param_spec_string (NM_SETTING_BLUETOOTH_TYPE, "", "",
-		                      NULL,
-		                      G_PARAM_READWRITE |
-		                      NM_SETTING_PARAM_INFERRABLE |
-		                      G_PARAM_STATIC_STRINGS));
+	pspec = g_param_spec_string (NM_SETTING_BLUETOOTH_TYPE, "", "",
+	                             NULL,
+	                             G_PARAM_READWRITE |
+	                             NM_SETTING_PARAM_INFERRABLE |
+	                             G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_TYPE, pspec);
+	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
+	                        valid_values_bluetooth_type);
 }

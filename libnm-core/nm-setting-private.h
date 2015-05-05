@@ -28,6 +28,12 @@
 
 #include "nm-core-internal.h"
 
+/* Declare quarks for property metadata */
+extern GQuark _property_metadata_valid_values_quark;
+extern GQuark _property_metadata_filename_quark;
+extern GQuark _property_metadata_multi_quark;
+extern GQuark _property_metadata_hash_quark;
+
 /**
  * NMSettingVerifyResult:
  * @NM_SETTING_VERIFY_SUCCESS: the setting verifies successfully

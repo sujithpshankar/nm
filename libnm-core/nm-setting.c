@@ -310,6 +310,12 @@ typedef struct {
 static GQuark setting_property_overrides_quark;
 static GQuark setting_properties_quark;
 
+/* Define quarks for property metadata */
+GQuark _property_metadata_valid_values_quark;
+GQuark _property_metadata_filename_quark;
+GQuark _property_metadata_multi_quark;
+GQuark _property_metadata_hash_quark;
+
 static NMSettingProperty *
 find_property (GArray *properties, const char *name)
 {
@@ -1825,6 +1831,151 @@ _nm_setting_get_deprecated_virtual_interface_name (NMSetting *setting,
 		return NULL;
 }
 
+/**
+ * nm_setting_property_get_metadata:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property to get data for
+ * @datum: the meta-datum name to get data for
+ *
+ * Generic function to get metadata of a property, i.e. the data attached to the property
+ * with NM_SETTING_PROPERTY_METADATA_... metadata.
+ *
+ * Returns: (transfer none): pointer to the metadata, or %NULL
+ *
+ * Since: 1.2
+ **/
+gconstpointer
+nm_setting_property_get_metadata (NMSetting *setting,
+                                  const char *property_name,
+                                  const char *datum)
+{
+	GParamSpec *pspec;
+	GQuark meta_quark;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
+	g_return_val_if_fail (property_name, NULL);
+
+	if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_VALID_VALUES))
+		meta_quark = _property_metadata_valid_values_quark;
+	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_FILENAME))
+		meta_quark = _property_metadata_filename_quark;
+	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_MULTI))
+		meta_quark = _property_metadata_multi_quark;
+	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_HASH))
+		meta_quark = _property_metadata_hash_quark;
+	else
+		return NULL;
+
+	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
+	if (!pspec)
+		return NULL;
+	return g_param_spec_get_qdata (pspec, meta_quark);
+}
+
+/**
+ * nm_setting_property_get_valid_values:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ *
+ * Return a string array with valid values for a property, i.e. the data attached to
+ * NM_SETTING_PROPERTY_METADATA_VALID_VALUES metadata.
+ *
+ * Returns: (transfer none): a string array of valid values for the property, or %NULL
+ *
+ * Since: 1.2
+ **/
+const char **
+nm_setting_property_get_valid_values (NMSetting *setting, const char *property_name)
+{
+	GParamSpec *pspec;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
+	g_return_val_if_fail (property_name, NULL);
+
+	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
+	if (!pspec)
+		return NULL;
+	return g_param_spec_get_qdata (pspec, _property_metadata_valid_values_quark);
+}
+
+/**
+ * nm_setting_property_is_filename:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ *
+ * Finds whether property with @property_name should contain a file name, i.e. it has
+ * NM_SETTING_PROPERTY_METADATA_FILENAME metadata attached.
+ *
+ * Returns: %TRUE if property is a file name, %FALSE if not
+ *
+ * Since: 1.2
+ **/
+gboolean
+nm_setting_property_is_filename (NMSetting *setting, const char *property_name)
+{
+	GParamSpec *pspec;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
+	g_return_val_if_fail (property_name, FALSE);
+
+	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
+	if (!pspec)
+		return FALSE;
+	return !!g_param_spec_get_qdata (pspec, _property_metadata_filename_quark);
+}
+
+/** nm_setting_property_is_multi_value:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ *
+ * Finds whether property with @property_name should contain multiple values, i.e. it has
+ * NM_SETTING_PROPERTY_METADATA_MULTI metadata attached.
+ *
+ * Returns: %TRUE if property is a file name, %FALSE if not
+ *
+ * Since: 1.2
+ **/
+gboolean
+nm_setting_property_is_multi_value (NMSetting *setting, const char *property_name)
+{
+	GParamSpec *pspec;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
+	g_return_val_if_fail (property_name, FALSE);
+
+	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
+	if (!pspec)
+		return FALSE;
+	return !!g_param_spec_get_qdata (pspec, _property_metadata_multi_quark);
+}
+
+/**
+ * nm_setting_property_is_hash:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ *
+ * Finds whether property with @property_name should contain a hash of options
+ * (option/value pairs), i.e. it has NM_SETTING_PROPERTY_METADATA_HASH metadata
+ * attached.
+ *
+ * Returns: %TRUE if property is a hash table of option/value pairs, %FALSE if not
+ *
+ * Since: 1.2
+ **/
+gboolean
+nm_setting_property_is_hash (NMSetting *setting, const char *property_name)
+{
+	GParamSpec *pspec;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
+	g_return_val_if_fail (property_name, FALSE);
+
+	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
+	if (!pspec)
+		return FALSE;
+	return !!g_param_spec_get_qdata (pspec, _property_metadata_hash_quark);
+}
+
 /*****************************************************************************/
 
 static void
@@ -1865,6 +2016,16 @@ nm_setting_class_init (NMSettingClass *setting_class)
 		setting_property_overrides_quark = g_quark_from_static_string ("nm-setting-property-overrides");
 	if (!setting_properties_quark)
 		setting_properties_quark = g_quark_from_static_string ("nm-setting-properties");
+
+	/* Initialize quarks used for metadata */
+	if (!_property_metadata_valid_values_quark)
+		_property_metadata_valid_values_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_VALID_VALUES);
+	if (!_property_metadata_filename_quark)
+		_property_metadata_filename_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_FILENAME);
+	if (!_property_metadata_multi_quark)
+		_property_metadata_multi_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_MULTI);
+	if (!_property_metadata_hash_quark)
+		_property_metadata_hash_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_HASH);
 
 	g_type_class_add_private (setting_class, sizeof (NMSettingPrivate));
 
