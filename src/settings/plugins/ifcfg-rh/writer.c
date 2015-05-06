@@ -1711,6 +1711,10 @@ write_connection_setting (NMSettingConnection *s_con, shvarFile *ifcfg)
 	svSetValue (ifcfg, "AUTOCONNECT_PRIORITY", tmp, FALSE);
 	g_free (tmp);
 
+	svSetValue (ifcfg, "AUTOCONNECT_SLAVES",
+	            nm_setting_connection_get_autoconnect_slaves (s_con) ? "yes" : "no",
+	            FALSE);
+
 	/* Permissions */
 	svSetValue (ifcfg, "USERS", NULL, FALSE);
 	n = nm_setting_connection_get_num_permissions (s_con);
