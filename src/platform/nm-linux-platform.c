@@ -367,7 +367,6 @@ typedef struct {
 
 typedef struct {
 	struct nl_sock *nlh;
-	struct nl_sock *nlh_event;
 	NMPCache *cache;
 	GIOChannel *event_channel;
 	guint event_id;
@@ -432,63 +431,36 @@ kernel_get_object (NMPlatform *platform, struct nl_sock *sock, const NMPObject *
 	struct nl_object *nlo_needle;
 	NMPObject *obj;
 	int nle;
-	struct nl_cache *cache;
+	const NMPClass *klass = NMP_OBJECT_GET_CLASS (needle);
 
-	switch (NMP_OBJECT_GET_TYPE (needle)) {
-	case OBJECT_TYPE_LINK:
-		nle = rtnl_link_get_kernel (sock, needle->link.ifindex,
-		                            needle->link.name[0] ? needle->link.name : NULL,
-		                            (struct rtnl_link **) &nlo);
-		switch (nle) {
-		case -NLE_SUCCESS:
-			_support_user_ipv6ll_detect ((struct rtnl_link *) nlo);
-			obj = nmp_object_from_nl (platform, nlo, FALSE);
-			_LOGD ("kernel-get-link: succeeds for ifindex=%d, name=%s: %s",
-			       needle->link.ifindex, needle->link.name,
-			       nmp_object_to_string (obj, NMP_OBJECT_TO_STRING_PUBLIC, NULL, 0));
-			return obj;
-		case -NLE_NODEV:
-			_LOGD ("kernel-get-link: succeeds for ifindex=%d, name=%s: NO DEVICE",
-			       needle->link.ifindex, needle->link.name);
+	switch (klass->obj_type) {
+	case OBJECT_TYPE_LINK: {
+		struct nl_msg *msg;
+
+		if ((nle = rtnl_link_build_get_request (needle->link.ifindex, needle->link.name[0] ? needle->link.name : NULL, &msg)))
 			return NULL;
-		default:
-			_LOGD ("kernel-get-link: fails for ifindex=%d, name=%s: %s (%d)",
-			       needle->link.ifindex, needle->link.name,
-			       nl_geterror (nle), nle);
+
+		nle = nl_send_auto(sock, msg);
+		nlmsg_free(msg);
+		if (nle < 0)
 			return NULL;
-		}
+
+		break;
+	}
 	case OBJECT_TYPE_IP4_ADDRESS:
 	case OBJECT_TYPE_IP6_ADDRESS:
+		nl_rtgen_request (sock, RTM_GETADDR, klass->addr_family, NLM_F_DUMP);
+		break;
 	case OBJECT_TYPE_IP4_ROUTE:
-	case OBJECT_TYPE_IP6_ROUTE:
-		/* FIXME: every time we refresh *one* object, we request an
-		 * entire dump. */
-		nle = nl_cache_alloc_and_fill (nl_cache_ops_lookup (NMP_OBJECT_GET_CLASS (needle)->nl_type),
-		                               sock, &cache);
-		if (nle) {
-			_LOGE ("kernel-get-%s: fails for %s: %s (%d)",
-			       NMP_OBJECT_GET_CLASS (needle)->obj_type_name,
-			       nmp_object_to_string (needle, NMP_OBJECT_TO_STRING_ID, NULL, 0),
-			       nl_geterror (nle), nle);
-			return NULL;
-		}
+	case OBJECT_TYPE_IP6_ROUTE: {
+		struct rtmsg rhdr = {
+			.rtm_family = klass->addr_family,
+			.rtm_flags = RTM_F_CLONED,
+		};
 
-		nlo_needle = nmp_object_to_nl (platform, needle, TRUE);
-		nlo = nl_cache_search (cache, nlo_needle);
-		nl_object_put (nlo_needle);
-		nl_cache_free (cache);
-
-		if (!nlo) {
-			_LOGD ("kernel-get-%s: had no results for %s",
-			       NMP_OBJECT_GET_CLASS (needle)->obj_type_name,
-			       nmp_object_to_string (needle, NMP_OBJECT_TO_STRING_ID, NULL, 0));
-			return NULL;
-		}
-		obj = nmp_object_from_nl (platform, nlo, FALSE);
-		_LOGD ("kernel-get-%s: succeeds: %s",
-		       NMP_OBJECT_GET_CLASS (needle)->obj_type_name,
-		       nmp_object_to_string (obj, NMP_OBJECT_TO_STRING_PUBLIC, NULL, 0));
-		return obj;
+		nl_send_simple (sock, RTM_GETROUTE, NLM_F_DUMP, &rhdr, sizeof(rhdr));
+		break;
+	}
 	default:
 		g_return_val_if_reached (NULL);
 	}
@@ -2080,11 +2052,15 @@ event_notification (struct nl_msg *msg, gpointer user_data)
 	auto_nl_object struct nl_object *nlo = NULL;
 	auto_nmp_obj NMPObject *obj = NULL;
 	int event;
+	struct nlmsghdr *msghdr;
 
-	event = nlmsg_hdr (msg)->nlmsg_type;
+	msghdr = nlmsg_hdr (msg);
+	event = msghdr->nlmsg_type;
 
 	if (_support_kernel_extended_ifa_flags_still_undecided () && event == RTM_NEWADDR)
 		_support_kernel_extended_ifa_flags_detect (msg);
+
+	_LOGD (">>> RECEIVED message %d: seq:%d", event, msghdr->nlmsg_seq);
 
 	nl_msg_parse (msg, ref_object, &nlo);
 	if (!nlo)
@@ -2097,8 +2073,10 @@ event_notification (struct nl_msg *msg, gpointer user_data)
 		_support_user_ipv6ll_detect ((struct rtnl_link *) nlo);
 
 	_LOGD ("event-notification: type %d: %s", event, nmp_object_to_string (obj, NMP_OBJECT_TO_STRING_PUBLIC, NULL, 0));
-	if (obj)
-		do_refresh_object (platform, obj, NM_PLATFORM_REASON_EXTERNAL, TRUE, NULL);
+	if (NM_IN_SET (event, RTM_DELLINK, RTM_DELADDR, RTM_DELROUTE))
+		cache_remove_netlink (platform, obj, NULL, NULL, NM_PLATFORM_REASON_EXTERNAL);
+	else
+		cache_update_netlink (platform, obj, NULL, NULL, NM_PLATFORM_REASON_EXTERNAL);
 
 	return NL_OK;
 }
@@ -4133,7 +4111,7 @@ event_handler (GIOChannel *channel,
 	NMLinuxPlatformPrivate *priv = NM_LINUX_PLATFORM_GET_PRIVATE (platform);
 	int nle;
 
-	nle = nl_recvmsgs_default (priv->nlh_event);
+	nle = nl_recvmsgs_default (priv->nlh);
 	if (nle < 0)
 		switch (nle) {
 		case -NLE_DUMP_INTR:
@@ -4146,17 +4124,17 @@ event_handler (GIOChannel *channel,
 			warning ("Too many netlink events. Need to resynchronize platform cache");
 			/* Drain the event queue, we've lost events and are out of sync anyway and we'd
 			 * like to free up some space. We'll read in the status synchronously. */
-			nl_socket_modify_cb (priv->nlh_event, NL_CB_VALID, NL_CB_DEFAULT, NULL, NULL);
+			nl_socket_modify_cb (priv->nlh, NL_CB_VALID, NL_CB_DEFAULT, NULL, NULL);
 			do {
 				errno = 0;
 
-				nle = nl_recvmsgs_default (priv->nlh_event);
+				nle = nl_recvmsgs_default (priv->nlh);
 
 				/* Work around a libnl bug fixed in 3.2.22 (375a6294) */
 				if (nle == 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
 					nle = -NLE_AGAIN;
 			} while (nle != -NLE_AGAIN);
-			nl_socket_modify_cb (priv->nlh_event, NL_CB_VALID, NL_CB_CUSTOM, event_notification, user_data);
+			nl_socket_modify_cb (priv->nlh, NL_CB_VALID, NL_CB_CUSTOM, event_notification, user_data);
 			delayed_action_schedule (platform, DELAYED_ACTION_TYPE_REFRESH_ALL, NULL);
 			delayed_action_handle_all (platform);
 			break;
@@ -4168,7 +4146,7 @@ event_handler (GIOChannel *channel,
 }
 
 static struct nl_sock *
-setup_socket (gboolean event, gpointer user_data)
+setup_socket (NMPlatform *platform)
 {
 	struct nl_sock *sock;
 	int nle;
@@ -4177,14 +4155,12 @@ setup_socket (gboolean event, gpointer user_data)
 	g_return_val_if_fail (sock, NULL);
 
 	/* Only ever accept messages from kernel */
-	nle = nl_socket_modify_cb (sock, NL_CB_MSG_IN, NL_CB_CUSTOM, verify_source, user_data);
+	nle = nl_socket_modify_cb (sock, NL_CB_MSG_IN, NL_CB_CUSTOM, verify_source, platform);
 	g_assert (!nle);
 
 	/* Dispatch event messages (event socket only) */
-	if (event) {
-		nl_socket_modify_cb (sock, NL_CB_VALID, NL_CB_CUSTOM, event_notification, user_data);
-		nl_socket_disable_seq_check (sock);
-	}
+	nl_socket_modify_cb (sock, NL_CB_VALID, NL_CB_CUSTOM, event_notification, platform);
+	nl_socket_disable_seq_check (sock);
 
 	nle = nl_connect (sock, NETLINK_ROUTE);
 	g_assert (!nle);
@@ -4192,10 +4168,8 @@ setup_socket (gboolean event, gpointer user_data)
 	g_assert (!nle);
 
 	/* No blocking for event socket, so that we can drain it safely. */
-	if (event) {
-		nle = nl_socket_set_nonblocking (sock);
-		g_assert (!nle);
-	}
+	nle = nl_socket_set_nonblocking (sock);
+	g_assert (!nle);
 
 	return sock;
 }
@@ -4332,29 +4306,24 @@ constructed (GObject *_object)
 	GUdevEnumerator *enumerator;
 	GList *devices, *iter;
 
-	/* Initialize netlink socket for requests */
-	priv->nlh = setup_socket (FALSE, platform);
-	g_assert (priv->nlh);
-	debug ("Netlink socket for requests established: %d", nl_socket_get_local_port (priv->nlh));
-
 	/* Initialize netlink socket for events */
-	priv->nlh_event = setup_socket (TRUE, platform);
-	g_assert (priv->nlh_event);
+	priv->nlh = setup_socket (platform);
+	g_assert (priv->nlh);
 	/* The default buffer size wasn't enough for the testsuites. It might just
 	 * as well happen with NetworkManager itself. For now let's hope 128KB is
 	 * good enough.
 	 */
-	nle = nl_socket_set_buffer_size (priv->nlh_event, 131072, 0);
+	nle = nl_socket_set_buffer_size (priv->nlh, 131072, 0);
 	g_assert (!nle);
-	nle = nl_socket_add_memberships (priv->nlh_event,
+	nle = nl_socket_add_memberships (priv->nlh,
 	                                 RTNLGRP_LINK,
 	                                 RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR,
 	                                 RTNLGRP_IPV4_ROUTE,  RTNLGRP_IPV6_ROUTE,
 	                                 0);
 	g_assert (!nle);
-	debug ("Netlink socket for events established: %d", nl_socket_get_local_port (priv->nlh_event));
+	_LOGD ("Netlink socket established: %d", nl_socket_get_local_port (priv->nlh));
 
-	priv->event_channel = g_io_channel_unix_new (nl_socket_get_fd (priv->nlh_event));
+	priv->event_channel = g_io_channel_unix_new (nl_socket_get_fd (priv->nlh));
 	g_io_channel_set_encoding (priv->event_channel, NULL, NULL);
 	g_io_channel_set_close_on_unref (priv->event_channel, TRUE);
 
@@ -4373,12 +4342,6 @@ constructed (GObject *_object)
 	/* Set up udev monitoring */
 	priv->udev_client = g_udev_client_new (udev_subsys);
 	g_signal_connect (priv->udev_client, "uevent", G_CALLBACK (handle_udev_event), platform);
-
-	/* request all IPv6 addresses (hopeing that there is at least one), to check for
-	 * the IFA_FLAGS attribute. */
-	nle = nl_rtgen_request (priv->nlh_event, RTM_GETADDR, AF_INET6, NLM_F_DUMP);
-	if (nle < 0)
-		nm_log_warn (LOGD_PLATFORM, "Netlink error: requesting RTM_GETADDR failed with %s", nl_geterror (nle));
 
 	priv->wifi_data = g_hash_table_new_full (NULL, NULL, NULL, (GDestroyNotify) wifi_utils_deinit);
 
@@ -4429,7 +4392,6 @@ nm_linux_platform_finalize (GObject *object)
 	g_source_remove (priv->event_id);
 	g_io_channel_unref (priv->event_channel);
 	nl_socket_free (priv->nlh);
-	nl_socket_free (priv->nlh_event);
 
 	g_object_unref (priv->udev_client);
 	g_hash_table_unref (priv->wifi_data);
