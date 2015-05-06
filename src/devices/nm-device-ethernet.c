@@ -1301,7 +1301,8 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *reason)
 	}
 
 	/* PPPoE setup */
-	if (!strcmp (connection_type, NM_SETTING_PPPOE_SETTING_NAME)) {
+	if (nm_connection_is_type (nm_device_get_connection (device),
+	                           NM_SETTING_PPPOE_SETTING_NAME)) {
 		NMSettingPpp *s_ppp;
 
 		s_ppp = (NMSettingPpp *) device_get_setting (device, NM_TYPE_SETTING_PPP);
