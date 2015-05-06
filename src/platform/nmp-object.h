@@ -325,6 +325,9 @@ GArray *nmp_cache_lookup_multi_to_array (const NMPCache *cache, ObjectType obj_t
 const NMPObject *nmp_cache_lookup_obj (const NMPCache *cache, const NMPObject *obj);
 const NMPObject *nmp_cache_lookup_link (const NMPCache *cache, int ifindex);
 
+guint64 nmp_cache_get_generation (const NMPCache *cache);
+guint64 nmp_cache_increment_generation (NMPCache *cache);
+
 gboolean nmp_cache_link_connected_needs_toggle (const NMPCache *cache, const NMPObject *master, const NMPObject *potential_slave, const NMPObject *ignore_slave);
 const NMPObject *nmp_cache_link_connected_needs_toggle_by_ifindex (const NMPCache *cache, int master_ifindex, const NMPObject *potential_slave, const NMPObject *ignore_slave);
 

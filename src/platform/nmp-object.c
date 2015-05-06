@@ -41,6 +41,7 @@ struct _NMPCache {
 
 	GHashTable *idx_main;
 	NMMultiIndex *idx_multi;
+	guint64 generation;
 };
 
 /******************************************************************/
@@ -1549,11 +1550,24 @@ nmp_cache_update_link_master_connected (NMPCache *cache, int ifindex, NMPObject 
 
 /******************************************************************/
 
+guint64
+nmp_cache_get_generation (const NMPCache *cache)
+{
+	return cache->generation;
+}
+
+guint64
+nmp_cache_increment_generation (NMPCache *cache)
+{
+	return ++cache->generation;
+}
+
 NMPCache *
 nmp_cache_new ()
 {
 	NMPCache *cache = g_new (NMPCache, 1);
 
+	cache->generation = 1;
 	cache->idx_main = g_hash_table_new_full ((GHashFunc) nmp_object_id_hash,
 	                                         (GEqualFunc) nmp_object_id_equal,
 	                                         (GDestroyNotify) nmp_object_unref,
