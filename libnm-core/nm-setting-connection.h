@@ -56,6 +56,7 @@ G_BEGIN_DECLS
 #define NM_SETTING_CONNECTION_ZONE           "zone"
 #define NM_SETTING_CONNECTION_MASTER         "master"
 #define NM_SETTING_CONNECTION_SLAVE_TYPE     "slave-type"
+#define NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES "autoconnect-slaves"
 #define NM_SETTING_CONNECTION_SECONDARIES    "secondaries"
 #define NM_SETTING_CONNECTION_GATEWAY_PING_TIMEOUT "gateway-ping-timeout"
 
@@ -111,6 +112,8 @@ const char *nm_setting_connection_get_master           (NMSettingConnection *set
 gboolean    nm_setting_connection_is_slave_type        (NMSettingConnection *setting,
                                                         const char *type);
 const char *nm_setting_connection_get_slave_type       (NMSettingConnection *setting);
+NM_AVAILABLE_IN_1_2
+gboolean    nm_setting_connection_get_autoconnect_slaves (NMSettingConnection *setting);
 
 guint32     nm_setting_connection_get_num_secondaries  (NMSettingConnection *setting);
 const char *nm_setting_connection_get_secondary        (NMSettingConnection *setting, guint32 idx);

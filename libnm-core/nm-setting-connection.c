@@ -66,6 +66,7 @@ typedef struct {
 	char *type;
 	char *master;
 	char *slave_type;
+	gboolean autoconnect_slaves;
 	GSList *permissions; /* list of Permission structs */
 	gboolean autoconnect;
 	gint autoconnect_priority;
@@ -90,6 +91,7 @@ enum {
 	PROP_ZONE,
 	PROP_MASTER,
 	PROP_SLAVE_TYPE,
+	PROP_AUTOCONNECT_SLAVES,
 	PROP_SECONDARIES,
 	PROP_GATEWAY_PING_TIMEOUT,
 
@@ -600,6 +602,25 @@ nm_setting_connection_is_slave_type (NMSettingConnection *setting,
 	g_return_val_if_fail (NM_IS_SETTING_CONNECTION (setting), FALSE);
 
 	return !g_strcmp0 (NM_SETTING_CONNECTION_GET_PRIVATE (setting)->slave_type, type);
+}
+
+/**
+ * nm_setting_connection_get_autoconnect_slaves:
+ * @setting: the #NMSettingConnection
+ *
+ * Returns the #NMSettingConnection:autoconnect-slaves property of the connection.
+ *
+ * Returns: whether slaves of the connection should be activated together
+ *          with the connection.
+ *
+ * Since: 1.2
+ **/
+gboolean
+nm_setting_connection_get_autoconnect_slaves (NMSettingConnection *setting)
+{
+	g_return_val_if_fail (NM_IS_SETTING_CONNECTION (setting), FALSE);
+
+	return NM_SETTING_CONNECTION_GET_PRIVATE (setting)->autoconnect_slaves;
 }
 
 /**
@@ -1122,6 +1143,9 @@ set_property (GObject *object, guint prop_id,
 		g_free (priv->slave_type);
 		priv->slave_type = g_value_dup_string (value);
 		break;
+	case PROP_AUTOCONNECT_SLAVES:
+		priv->autoconnect_slaves = g_value_get_boolean (value);
+		break;
 	case PROP_SECONDARIES:
 		g_slist_free_full (priv->secondaries, g_free);
 		priv->secondaries = _nm_utils_strv_to_slist (g_value_get_boxed (value));
@@ -1192,6 +1216,9 @@ get_property (GObject *object, guint prop_id,
 		break;
 	case PROP_SLAVE_TYPE:
 		g_value_set_string (value, nm_setting_connection_get_slave_type (setting));
+		break;
+	case PROP_AUTOCONNECT_SLAVES:
+		g_value_set_boolean (value, nm_setting_connection_get_autoconnect_slaves (setting));
 		break;
 	case PROP_SECONDARIES:
 		g_value_take_boxed (value, _nm_utils_slist_to_strv (priv->secondaries));
@@ -1522,6 +1549,34 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 		                      NM_SETTING_PARAM_FUZZY_IGNORE |
 		                      NM_SETTING_PARAM_INFERRABLE |
 		                      G_PARAM_STATIC_STRINGS));
+
+	/**
+	 * NMSettingConnection:autoconnect-slaves:
+	 *
+	 * Whether or not slaves of this connection should be automatically brought up
+	 * when NetworkManager activates this connection. This only has a real effect
+	 * for master connections.
+	 * %TRUE to activate all the slave connections with this connection; %FALSE to
+	 * leave slave connections untouched, which is default.
+	 *
+	 * Since: 1.2
+	 **/
+	/* ---ifcfg-rh---
+	 * property: autoconnect-slaves
+	 * variable: AUTOCONNECT-SLAVES(+)
+	 * default: no
+	 * description: Whether slaves of this connection should be auto-connected
+	 *   when this connection is activated.
+	 * ---end---
+	 */
+	g_object_class_install_property
+		(object_class, PROP_AUTOCONNECT_SLAVES,
+		 g_param_spec_boolean (NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES, "", "",
+		                       FALSE,
+		                       G_PARAM_READWRITE |
+		                       G_PARAM_CONSTRUCT |
+		                       NM_SETTING_PARAM_FUZZY_IGNORE |
+		                       G_PARAM_STATIC_STRINGS));
 
 	/**
 	 * NMSettingConnection:secondaries:
