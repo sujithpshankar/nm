@@ -132,6 +132,7 @@ extern NMPCacheId _nmp_cache_id_static;
 
 typedef struct {
 	ObjectType obj_type;
+	int addr_family;
 	int sizeof_data;
 	int sizeof_public;
 	const char *obj_type_name;
