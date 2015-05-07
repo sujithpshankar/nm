@@ -300,6 +300,23 @@ no-auto-default=*
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+	<term><varname>master-autoconnects-slaves</varname></term>
+	<listitem><para>This key controls NetworkManager behaviour on
+	 activating slaves when master is activated. Allowed values are:</para>
+	<para><literal>always</literal>: this option makes NetworkManager
+	bring up all slaves when a master connection is activated.</para>
+	<para><literal>never</literal>: NetworkManager does not bring up slaves
+	when activating a master connection.</para>
+	<para><literal>per-master</literal>: NetworkManager decides what to do
+	according to the master connection's connection.autoconnect-slaves
+	property.</para>
+	<para>
+	If the option is missing, it defaults to <literal>per-master</literal>.
+	</para>
+	</listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

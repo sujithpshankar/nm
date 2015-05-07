@@ -2422,14 +2422,30 @@ autoconnect_slaves (NMManager *manager,
                     NMDevice *master_device,
                     NMAuthSubject *subject)
 {
-	NMSettingConnection *s_con;
+	NMConfig *config = nm_config_get ();
 	GError *local_err = NULL;
 	gboolean ret = FALSE;
+	NMConfigMasterAutoconnectsSlaves slaves_config;
+	gboolean should_connect_slaves;
 
-	s_con = nm_connection_get_setting_connection (master_connection);
-	g_assert (s_con);
+	/* Find out whether we should activate slaves */
+	slaves_config = nm_config_data_get_master_autoconnects_slaves (nm_config_get_data (config));
+	if (slaves_config == NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_ALWAYS)
+		should_connect_slaves = TRUE;
+	else if (slaves_config == NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_NEVER)
+		should_connect_slaves = FALSE;
+	else if (slaves_config == NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_PER_MASTER) {
+		NMSettingConnection *s_con = nm_connection_get_setting_connection (master_connection);
+		g_assert (s_con);
 
-	if (nm_setting_connection_get_autoconnect_slaves (s_con)) {
+		if (nm_setting_connection_get_autoconnect_slaves (s_con))
+			should_connect_slaves = TRUE;
+		else
+			should_connect_slaves = FALSE;
+	} else
+		g_assert_not_reached ();
+
+	if (should_connect_slaves) {
 		GSList *slaves, *iter;
 
 		iter = slaves = find_slaves (manager, master_connection, master_device);

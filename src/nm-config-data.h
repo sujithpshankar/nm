@@ -44,6 +44,7 @@ G_BEGIN_DECLS
 #define NM_CONFIG_DATA_CONNECTIVITY_RESPONSE "connectivity-response"
 #define NM_CONFIG_DATA_NO_AUTO_DEFAULT       "no-auto-default"
 #define NM_CONFIG_DATA_DNS_MODE              "dns"
+#define NM_CONFIG_DATA_MASTER_AUTOCONNECTS_SLAVES "master-autoconnects-slaves"
 
 typedef enum { /*< flags >*/
 	NM_CONFIG_CHANGE_NONE                      = 0,
@@ -53,10 +54,25 @@ typedef enum { /*< flags >*/
 	NM_CONFIG_CHANGE_NO_AUTO_DEFAULT           = (1L << 3),
 	NM_CONFIG_CHANGE_DNS_MODE                  = (1L << 4),
 	NM_CONFIG_CHANGE_RC_MANAGER                = (1L << 5),
+	NM_CONFIG_CHANGE_MASTER_AUTOCONNECTS_SLAVES = (1L << 6),
 
 	_NM_CONFIG_CHANGE_LAST,
 	NM_CONFIG_CHANGE_ALL                       = ((_NM_CONFIG_CHANGE_LAST - 1) << 1) - 1,
 } NMConfigChangeFlags;
+
+/**
+ * NMConfigMasterAutoconnectsSlaves:
+ * @NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_PER_MASTER: depends on master connection (default)
+ * @NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_ALWAYS: master always brings up slaves
+ * @NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_NEVER: master never brings up slaves
+ *
+ * The configuration of slaves' auto-connection behaviour when master is activated.
+ */
+typedef enum {
+	NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_PER_MASTER = 0,
+	NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_ALWAYS,
+	NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_NEVER,
+} NMConfigMasterAutoconnectsSlaves;
 
 struct _NMConfigData {
 	GObject parent;
@@ -90,6 +106,7 @@ const GSList *    nm_config_data_get_no_auto_default_list (const NMConfigData *c
 
 const char *nm_config_data_get_dns_mode (const NMConfigData *self);
 const char *nm_config_data_get_rc_manager (const NMConfigData *self);
+NMConfigMasterAutoconnectsSlaves nm_config_data_get_master_autoconnects_slaves (const NMConfigData *self);
 
 gboolean nm_config_data_get_ignore_carrier (const NMConfigData *self, NMDevice *device);
 gboolean nm_config_data_get_assume_ipv6ll_only (const NMConfigData *self, NMDevice *device);
