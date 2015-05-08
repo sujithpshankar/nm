@@ -1308,19 +1308,15 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *reason)
 		s_ppp = (NMSettingPpp *) device_get_setting (device, NM_TYPE_SETTING_PPP);
 		if (s_ppp) {
 			guint32 mtu = 0, mru = 0, mxu;
-			const char *iface;
-			int ifindex;
 
 			mtu = nm_setting_ppp_get_mtu (s_ppp);
 			mru = nm_setting_ppp_get_mru (s_ppp);
 			mxu = mru > mtu ? mru : mtu;
 			if (mxu) {
-				iface = nm_device_get_iface (device);
-				ifindex = nm_platform_link_get_ifindex (NM_PLATFORM_GET, iface);
-
 				_LOGD (LOGD_PPP, "set MTU to %u (PPP interface MRU %u, MTU %u)",
 				       mxu + PPPOE_ENCAP_OVERHEAD, mru, mtu);
-				nm_platform_link_set_mtu (NM_PLATFORM_GET, ifindex,
+				nm_platform_link_set_mtu (NM_PLATFORM_GET,
+				                          nm_device_get_ifindex (device),
 				                          mxu + PPPOE_ENCAP_OVERHEAD);
 			}
 		}
