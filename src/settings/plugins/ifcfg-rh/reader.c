@@ -133,6 +133,7 @@ make_connection_setting (const char *file,
 	NMSettingConnection *s_con;
 	const char *ifcfg_name = NULL;
 	char *new_id, *uuid = NULL, *zone = NULL, *value;
+	gboolean autoconnect_slaves_default = FALSE;
 
 	ifcfg_name = utils_get_ifcfg_name (file, TRUE);
 	if (!ifcfg_name)
@@ -168,6 +169,10 @@ make_connection_setting (const char *file,
 		g_free (value);
 	}
 
+	/* Default to AUTOCONNECT_SLAVES=TRUE for bonds to be compatible with initscripts */
+	if (svTrueValue (ifcfg, "BONDING_MASTER", FALSE))
+		autoconnect_slaves_default = TRUE;
+
 	/* Missing ONBOOT is treated as "ONBOOT=true" by the old network service */
 	g_object_set (s_con,
 	              NM_SETTING_CONNECTION_AUTOCONNECT,
@@ -178,7 +183,7 @@ make_connection_setting (const char *file,
 	                                      NM_SETTING_CONNECTION_AUTOCONNECT_PRIORITY_MAX,
 	                                      NM_SETTING_CONNECTION_AUTOCONNECT_PRIORITY_DEFAULT),
 	              NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES,
-	              svTrueValue (ifcfg, "AUTOCONNECT_SLAVES", FALSE),
+	              svTrueValue (ifcfg, "AUTOCONNECT_SLAVES", autoconnect_slaves_default),
 	              NULL);
 
 	value = svGetValue (ifcfg, "USERS", FALSE);
