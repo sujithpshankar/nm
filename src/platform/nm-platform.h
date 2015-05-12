@@ -40,6 +40,10 @@
 
 /******************************************************************/
 
+#define NM_PLATFORM_DO_SETUP_SINGLETON "do-setup-singleton"
+
+/******************************************************************/
+
 typedef struct _NMPlatform NMPlatform;
 
 /* workaround for older libnl version, that does not define these flags. */
