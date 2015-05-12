@@ -1191,6 +1191,7 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *reason)
 	const char *connection_type;
 	NMActStageReturn ret = NM_ACT_STAGE_RETURN_SUCCESS;
 	NMSettingDcb *s_dcb;
+	NMSettingWired *s_wired;
 
 	g_return_val_if_fail (reason != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
@@ -1212,6 +1213,13 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *reason)
 			/* FIXME: for now 802.1x is mutually exclusive with DCB */
 			return nm_8021x_stage2_config (self, reason);
 		}
+	}
+
+	s_wired = (NMSettingWired *) device_get_setting (device, NM_TYPE_SETTING_WIRED);
+	if (s_wired) {
+		nmp_utils_ethtool_set_wake_on_lan (nm_device_get_iface (device),
+		                                   nm_setting_wired_get_wake_on_lan (s_wired),
+		                                   nm_setting_wired_get_wake_on_lan_password (s_wired));
 	}
 
 	/* DCB and FCoE setup */
