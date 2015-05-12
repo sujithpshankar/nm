@@ -169,8 +169,9 @@ make_connection_setting (const char *file,
 		g_free (value);
 	}
 
-	/* Default to AUTOCONNECT_SLAVES=TRUE for bonds to be compatible with initscripts */
-	if (svTrueValue (ifcfg, "BONDING_MASTER", FALSE))
+	/* Default to AUTOCONNECT_SLAVES=TRUE for bond and team to be compatible with initscripts */
+	if (   !strcmp (type, NM_SETTING_TEAM_SETTING_NAME)
+	    || !strcmp (type, NM_SETTING_BOND_SETTING_NAME))
 		autoconnect_slaves_default = TRUE;
 
 	/* Missing ONBOOT is treated as "ONBOOT=true" by the old network service */
