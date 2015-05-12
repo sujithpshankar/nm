@@ -6451,6 +6451,24 @@ should_complete_property_values (const char *prompt, const char *line,
 
 }
 
+static gboolean
+should_complete_boolean (const char *prompt, const char *line)
+{
+	NMSetting *setting;
+	char *property;
+	gboolean is_boolean = FALSE;
+
+	get_setting_and_property (prompt, line, &setting, &property);
+	if (setting && property)
+		is_boolean = nm_setting_property_is_boolean (setting, property);
+
+	if (setting)
+		g_object_unref (setting);
+	g_free (property);
+
+	return is_boolean;
+}
+
 static char *
 gen_property_values (const char *text, int state)
 {
@@ -6549,7 +6567,8 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 								rl_completion_append_character = '=';
 								rl_completer_word_break_characters = ", ";
 							}
-						}
+						} else if (should_complete_boolean (NULL, line) && num == 3)
+							generator_func = gen_func_bool_values;
 					}
 				} else if (  (   should_complete_cmd (line, end, "remove", &num, NULL)
 				              || should_complete_cmd (line, end, "describe", &num, NULL))
@@ -6599,7 +6618,8 @@ nmcli_editor_tab_completion (const char *text, int start, int end)
 							rl_completion_append_character = '=';
 							rl_completer_word_break_characters = ", ";
 						}
-					}
+					} else if (should_complete_boolean (prompt_tmp, NULL) && num <= 2)
+						generator_func = gen_func_bool_values;
 				}
 				if (should_complete_cmd (line, end, "print", &num, NULL) && num <= 2)
 					generator_func = gen_cmd_print2;
