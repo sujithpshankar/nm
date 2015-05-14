@@ -468,7 +468,7 @@ update_ip4_routing (NMPolicy *policy, gboolean force_update)
 		return;
 
 	priv->default_device4 = default_device;
-	connection = nm_active_connection_get_connection (best_ac);
+	connection = nm_active_connection_get_applied_connection (best_ac);
 	nm_log_info (LOGD_CORE, "Policy set '%s' (%s) as default for IPv4 routing and DNS.",
 	             nm_connection_get_id (connection), ip_iface);
 	g_object_notify (G_OBJECT (policy), NM_POLICY_DEFAULT_IP4_DEVICE);
@@ -563,7 +563,7 @@ update_ip6_routing (NMPolicy *policy, gboolean force_update)
 		return;
 
 	priv->default_device6 = default_device6;
-	connection = nm_active_connection_get_connection (best_ac);
+	connection = nm_active_connection_get_applied_connection (best_ac);
 	nm_log_info (LOGD_CORE, "Policy set '%s' (%s) as default for IPv6 routing and DNS.",
 	             nm_connection_get_id (connection), ip_iface);
 	g_object_notify (G_OBJECT (policy), NM_POLICY_DEFAULT_IP6_DEVICE);
@@ -1099,7 +1099,10 @@ device_state_changed (NMDevice *device,
 {
 	NMPolicy *policy = (NMPolicy *) user_data;
 	NMPolicyPrivate *priv = NM_POLICY_GET_PRIVATE (policy);
+
 	NMSettingsConnection *connection = NM_SETTINGS_CONNECTION (nm_device_get_connection (device));
+	NMConnection *applied = nm_device_get_applied_connection (device);
+
 	const char *ip_iface = nm_device_get_ip_iface (device);
 	NMIP4Config *ip4_config;
 	NMIP6Config *ip6_config;
@@ -1148,8 +1151,11 @@ device_state_changed (NMDevice *device,
 			/* And clear secrets so they will always be requested from the
 			 * settings service when the next connection is made.
 			 */
+
 			nm_connection_clear_secrets (NM_CONNECTION (connection));
 		}
+		if (applied)
+			nm_connection_clear_secrets (applied);
 
 		/* Add device's new IPv4 and IPv6 configs to DNS */
 
@@ -1461,7 +1467,7 @@ vpn_connection_retry_after_failure (NMVpnConnection *vpn, NMPolicy *policy)
 {
 	NMPolicyPrivate *priv = NM_POLICY_GET_PRIVATE (policy);
 	NMActiveConnection *ac = NM_ACTIVE_CONNECTION (vpn);
-	NMConnection *connection = nm_active_connection_get_connection (ac);
+	NMConnection *connection = nm_active_connection_get_applied_connection (ac);
 	GError *error = NULL;
 
 	/* Attempt to reconnect VPN connections that failed after being connected */
@@ -1575,7 +1581,7 @@ firewall_update_zone (NMPolicy *policy, NMConnection *connection)
 	for (iter = nm_manager_get_devices (priv->manager); iter; iter = g_slist_next (iter)) {
 		NMDevice *dev = NM_DEVICE (iter->data);
 
-		if (   (nm_device_get_connection (dev) == connection)
+		if (   (nm_device_get_applied_connection (dev) == connection)
 		    && (nm_device_get_state (dev) == NM_DEVICE_STATE_ACTIVATED)
 		    && !nm_device_uses_assumed_connection (dev)) {
 			nm_firewall_manager_add_or_change_zone (nm_firewall_manager_get (),
@@ -1602,7 +1608,7 @@ firewall_started (NMFirewallManager *manager,
 	for (iter = nm_manager_get_devices (priv->manager); iter; iter = g_slist_next (iter)) {
 		NMDevice *dev = NM_DEVICE (iter->data);
 
-		connection = nm_device_get_connection (dev);
+		connection = nm_device_get_applied_connection (dev);
 		if (!connection)
 			continue;
 

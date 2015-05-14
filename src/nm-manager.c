@@ -869,7 +869,7 @@ find_parent_device_for_connection (NMManager *self, NMConnection *connection)
 	for (iter = priv->devices; iter; iter = iter->next) {
 		NMDevice *candidate = iter->data;
 
-		if (nm_device_get_connection (candidate) == parent_connection)
+		if (nm_device_get_applied_connection (candidate) == parent_connection)
 			return candidate;
 
 		if (   !first_compatible
@@ -2115,7 +2115,7 @@ find_master (NMManager *self,
 			return FALSE;
 		}
 
-		master_connection = nm_device_get_connection (master_device);
+		master_connection = nm_device_get_applied_connection (master_device);
 		if (master_connection && !is_compatible_with_slave (master_connection, connection)) {
 			g_set_error (error, NM_MANAGER_ERROR, NM_MANAGER_ERROR_DEPENDENCY_FAILED,
 			             "The active connection on %s is not a valid master for '%s'",
@@ -2134,7 +2134,7 @@ find_master (NMManager *self,
 				if (candidate == device)
 					continue;
 
-				if (nm_device_get_connection (candidate) == master_connection) {
+				if (nm_device_get_applied_connection (candidate) == master_connection) {
 					master_device = candidate;
 					break;
 				}
@@ -2224,7 +2224,7 @@ ensure_master_active_connection (NMManager *self,
 	 * compatible connection.  If it's already activating we can just proceed.
 	 */
 	if (master_device) {
-		NMConnection *device_connection = nm_device_get_connection (master_device);
+		NMConnection *device_connection = nm_device_get_applied_connection (master_device);
 
 		/* If we're passed a connection and a device, we require that connection
 		 * be already activated on the device, eg returned from find_master().
@@ -2439,7 +2439,7 @@ _internal_activate_device (NMManager *self, NMActiveConnection *active, GError *
 		 * should not be allowed to implicitly deactivate private connections
 		 * by activating a connection of their own.
 		 */
-		existing_connection = nm_device_get_connection (device);
+		existing_connection = nm_device_get_applied_connection (device);
 		subject = nm_active_connection_get_subject (active);
 		if (existing_connection &&
 		    !nm_auth_is_subject_in_acl (existing_connection,
@@ -3292,7 +3292,7 @@ impl_manager_deactivate_connection (NMManager *self,
 		NMActiveConnection *ac = iter->data;
 
 		if (g_strcmp0 (nm_active_connection_get_path (ac), active_path) == 0) {
-			connection = nm_active_connection_get_connection (ac);
+			connection = nm_active_connection_get_applied_connection (ac);
 			break;
 		}
 	}

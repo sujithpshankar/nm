@@ -749,7 +749,7 @@ nm_device_get_ip4_route_metric (NMDevice *self)
 
 	g_return_val_if_fail (NM_IS_DEVICE (self), G_MAXUINT32);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (connection)
 		s_ip = nm_connection_get_setting_ip4_config (connection);
 
@@ -772,7 +772,7 @@ nm_device_get_ip6_route_metric (NMDevice *self)
 
 	g_return_val_if_fail (NM_IS_DEVICE (self), G_MAXUINT32);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (connection)
 		s_ip = nm_connection_get_setting_ip6_config (connection);
 
@@ -844,6 +844,14 @@ nm_device_get_connection (NMDevice *self)
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
 
 	return priv->act_request ? nm_act_request_get_connection (priv->act_request) : NULL;
+}
+
+NMConnection *
+nm_device_get_applied_connection (NMDevice *self)
+{
+	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
+
+	return priv->act_request ? nm_act_request_get_applied_connection (priv->act_request) : NULL;
 }
 
 RfKillType
@@ -1519,7 +1527,7 @@ slave_state_changed (NMDevice *slave,
 		return;
 
 	if (slave_new_state == NM_DEVICE_STATE_IP_CONFIG)
-		nm_device_enslave_slave (self, slave, nm_device_get_connection (slave));
+		nm_device_enslave_slave (self, slave, nm_device_get_applied_connection (slave));
 	else if (slave_new_state > NM_DEVICE_STATE_ACTIVATED)
 		release = TRUE;
 	else if (   slave_new_state <= NM_DEVICE_STATE_DISCONNECTED
@@ -1713,7 +1721,7 @@ static void
 nm_device_slave_notify_enslave (NMDevice *self, gboolean success)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
-	NMConnection *connection = nm_device_get_connection (self);
+	NMConnection *connection = nm_device_get_applied_connection (self);
 	gboolean activating = (priv->state == NM_DEVICE_STATE_IP_CONFIG);
 
 	g_assert (priv->master);
@@ -1755,7 +1763,7 @@ static void
 nm_device_slave_notify_release (NMDevice *self, NMDeviceStateReason reason)
 {
 	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
-	NMConnection *connection = nm_device_get_connection (self);
+	NMConnection *connection = nm_device_get_applied_connection (self);
 	NMDeviceState new_state;
 	const char *master_status;
 
@@ -2298,7 +2306,7 @@ nm_device_can_assume_active_connection (NMDevice *self)
 	if (!nm_device_can_assume_connections (self))
 		return FALSE;
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (!connection)
 		return FALSE;
 
@@ -2465,7 +2473,7 @@ get_ip_config_may_fail (NMDevice *self, int family)
 
 	g_return_val_if_fail (self != NULL, TRUE);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	/* Fail the connection if the failed IP method is required to complete */
@@ -2659,7 +2667,7 @@ nm_device_activate_stage2_device_config (gpointer user_data)
 		NMDeviceState slave_state = nm_device_get_state (info->slave);
 
 		if (slave_state == NM_DEVICE_STATE_IP_CONFIG)
-			nm_device_enslave_slave (self, info->slave, nm_device_get_connection (info->slave));
+			nm_device_enslave_slave (self, info->slave, nm_device_get_applied_connection (info->slave));
 		else if (   nm_device_uses_generated_assumed_connection (self)
 		         && slave_state <= NM_DEVICE_STATE_DISCONNECTED)
 			nm_device_queue_recheck_assume (info->slave);
@@ -2804,7 +2812,7 @@ nm_device_handle_ipv4ll_event (sd_ipv4ll *ll, int event, void *data)
 	if (priv->act_request == NULL)
 		return;
 
-	connection = nm_act_request_get_connection (priv->act_request);
+	connection = nm_act_request_get_applied_connection (priv->act_request);
 	g_assert (connection);
 
 	/* Ignore if the connection isn't an AutoIP connection */
@@ -3001,7 +3009,7 @@ ensure_con_ipx_config (NMDevice *self)
 	if (priv->con_ip4_config)
 		return;
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (!connection)
 		return;
 
@@ -3098,7 +3106,7 @@ ip4_config_merge_and_apply (NMDevice *self,
 	if (priv->con_ip4_config)
 		nm_ip4_config_merge (composite, priv->con_ip4_config);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 
 	/* Add the default route.
 	 *
@@ -3214,7 +3222,7 @@ dhcp4_lease_change (NMDevice *self, NMIP4Config *config)
 	} else {
 		/* Notify dispatcher scripts of new DHCP4 config */
 		nm_dispatcher_call (DISPATCHER_ACTION_DHCP4_CHANGE,
-		                    nm_device_get_connection (self),
+		                    nm_device_get_applied_connection (self),
 		                    self,
 		                    NULL,
 		                    NULL,
@@ -3374,7 +3382,7 @@ nm_device_dhcp4_renew (NMDevice *self, gboolean release)
 	/* Terminate old DHCP instance and release the old lease */
 	dhcp4_cleanup (self, TRUE, release);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	/* Start DHCP again on the interface */
@@ -3569,7 +3577,7 @@ act_stage3_ip4_config_start (NMDevice *self,
 
 	g_return_val_if_fail (reason != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	if (   connection_ip4_method_requires_carrier (connection, NULL)
@@ -3695,7 +3703,7 @@ ip6_config_merge_and_apply (NMDevice *self,
 	if (priv->con_ip6_config)
 		nm_ip6_config_merge (composite, priv->con_ip6_config);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 
 	/* Add the default route.
 	 *
@@ -3816,7 +3824,7 @@ dhcp6_lease_change (NMDevice *self)
 
 	g_assert (priv->dhcp6_client);  /* sanity check */
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	/* Apply the updated config */
@@ -3995,7 +4003,7 @@ dhcp6_start (NMDevice *self, gboolean wait_for_ll, NMDeviceStateReason *reason)
 	g_warn_if_fail (priv->dhcp6_ip6_config == NULL);
 	g_clear_object (&priv->dhcp6_ip6_config);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 	s_ip6 = nm_connection_get_setting_ip6_config (connection);
 	if (!nm_setting_ip_config_get_may_fail (s_ip6) ||
@@ -4099,7 +4107,7 @@ linklocal6_complete (NMDevice *self)
 
 	linklocal6_cleanup (self);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	method = nm_utils_get_ip_config_method (connection, NM_TYPE_SETTING_IP6_CONFIG);
@@ -4181,7 +4189,7 @@ linklocal6_start (NMDevice *self)
 	if (have_ip6_address (priv->ip6_config, TRUE))
 		return NM_ACT_STAGE_RETURN_FINISH;
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	method = nm_utils_get_ip_config_method (connection, NM_TYPE_SETTING_IP6_CONFIG);
@@ -4511,7 +4519,7 @@ addrconf6_start (NMDevice *self, NMSettingIP6ConfigPrivacy use_tempaddr)
 	NMActStageReturn ret;
 	const char *ip_iface = nm_device_get_ip_iface (self);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	g_warn_if_fail (priv->ac_ip6_config == NULL);
@@ -4742,7 +4750,7 @@ act_stage3_ip6_config_start (NMDevice *self,
 
 	ip_iface = nm_device_get_ip_iface (self);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	if (   connection_ip6_method_requires_carrier (connection, NULL)
@@ -4989,7 +4997,7 @@ nm_device_activate_stage3_ip_config_start (gpointer user_data)
 		master_device = nm_active_connection_get_device (master);
 		if (priv->ip4_state == IP_WAIT && priv->ip6_state == IP_WAIT) {
 			_LOGI (LOGD_DEVICE, "Activation: connection '%s' waiting on master '%s'",
-			       nm_connection_get_id (nm_device_get_connection (self)),
+			       nm_connection_get_id (nm_device_get_applied_connection (self)),
 			       master_device ? nm_device_get_iface (master_device) : "(unknown)");
 		}
 		goto out;
@@ -5054,7 +5062,7 @@ nm_device_activate_schedule_stage3_ip_config_start (NMDevice *self)
 	g_return_if_fail (!priv->fw_call);
 
 	/* Add the interface to the specified firewall zone */
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 	s_con = nm_connection_get_setting_connection (connection);
 
@@ -5332,7 +5340,7 @@ send_arps (NMDevice *self, const char *mode_arg)
 	NMIPAddress *addr;
 	GError *error = NULL;
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (!connection)
 		return;
 	s_ip4 = nm_connection_get_setting_ip4_config (connection);
@@ -5407,7 +5415,7 @@ arp_announce (NMDevice *self)
 	/* We only care about manually-configured addresses; DHCP- and autoip-configured
 	 * ones should already have been seen on the network at this point.
 	 */
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (!connection)
 		return;
 	s_ip4 = nm_connection_get_setting_ip4_config (connection);
@@ -5439,7 +5447,7 @@ nm_device_activate_ip4_config_commit (gpointer user_data)
 
 	req = nm_device_get_act_request (self);
 	g_assert (req);
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_assert (connection);
 
 	/* Interface must be IFF_UP before IP config can be applied */
@@ -5560,7 +5568,7 @@ nm_device_activate_ip6_config_commit (gpointer user_data)
 
 	req = nm_device_get_act_request (self);
 	g_assert (req);
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_assert (connection);
 
 	/* Interface must be IFF_UP before IP config can be applied */
@@ -5915,7 +5923,7 @@ _device_activate (NMDevice *self, NMActRequest *req)
 
 	priv = NM_DEVICE_GET_PRIVATE (self);
 
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_assert (connection);
 
 	_LOGI (LOGD_DEVICE, "Activation: starting connection '%s' (%s)",
@@ -5976,7 +5984,7 @@ _carrier_wait_check_act_request_must_queue (NMDevice *self, NMActRequest *req)
 	if (priv->carrier_wait_id == 0)
 		return FALSE;
 
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 
 	if (!nm_device_check_connection_available (self, connection, NM_DEVICE_CHECK_CON_AVAILABLE_ALL, NULL)) {
 		/* We passed all @flags we have, and no @specific_object.
@@ -6185,7 +6193,7 @@ nm_device_set_ip4_config (NMDevice *self,
 			g_object_unref (old_config);
 
 		if (nm_device_uses_generated_assumed_connection (self)) {
-			NMConnection *connection = nm_device_get_connection (self);
+			NMConnection *connection = nm_device_get_applied_connection (self);
 			NMSetting *s_ip4;
 
 			g_object_freeze_notify (G_OBJECT (connection));
@@ -6313,7 +6321,7 @@ nm_device_set_ip6_config (NMDevice *self,
 			g_object_unref (old_config);
 
 		if (nm_device_uses_generated_assumed_connection (self)) {
-			NMConnection *connection = nm_device_get_connection (self);
+			NMConnection *connection = nm_device_get_applied_connection (self);
 			NMSetting *s_ip6;
 
 			g_object_freeze_notify (G_OBJECT (connection));
@@ -6562,7 +6570,7 @@ nm_device_start_ip_check (NMDevice *self)
 	g_assert (!priv->gw_ping.pid);
 	g_assert (priv->ip4_state == IP_DONE || priv->ip6_state == IP_DONE);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	s_con = nm_connection_get_setting_connection (connection);
@@ -7550,7 +7558,7 @@ _cleanup_generic_pre (NMDevice *self, gboolean deconfigure)
 
 	_cancel_activation (self);
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	if (   deconfigure
 	    && connection
 	    && !nm_device_uses_assumed_connection (self)) {
@@ -7727,7 +7735,7 @@ nm_device_spawn_iface_helper (NMDevice *self)
 	if (!nm_device_can_assume_connections (self))
 		return;
 
-	connection = nm_device_get_connection (self);
+	connection = nm_device_get_applied_connection (self);
 	g_assert (connection);
 
 	argv = g_ptr_array_sized_new (10);

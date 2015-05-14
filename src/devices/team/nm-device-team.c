@@ -387,7 +387,7 @@ teamd_dbus_vanished (GDBusConnection *dbus_connection,
 
 	/* Attempt to respawn teamd */
 	if (state >= NM_DEVICE_STATE_PREPARE && state <= NM_DEVICE_STATE_ACTIVATED) {
-		NMConnection *connection = nm_device_get_connection (device);
+		NMConnection *connection = nm_device_get_applied_connection (device);
 
 		g_assert (connection);
 		if (!teamd_start (device, nm_connection_get_setting_team (connection)))
@@ -530,7 +530,7 @@ act_stage1_prepare (NMDevice *device, NMDeviceStateReason *reason)
 	if (ret != NM_ACT_STAGE_RETURN_SUCCESS)
 		return ret;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 	s_team = nm_connection_get_setting_team (connection);
 	g_assert (s_team);

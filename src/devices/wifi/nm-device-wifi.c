@@ -498,7 +498,7 @@ deactivate (NMDevice *device)
 	NMConnection *connection;
 	NM80211Mode old_mode = priv->mode;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	if (connection) {
 		/* Clear wireless secrets tries when deactivating */
 		g_object_set_data (G_OBJECT (connection), WIRELESS_SECRETS_TRIES, NULL);
@@ -1172,7 +1172,7 @@ scanning_allowed (NMDeviceWifi *self)
 	    || nm_supplicant_interface_get_scanning (priv->sup_iface))
 		return FALSE;
 
-	connection = nm_device_get_connection (NM_DEVICE (self));
+	connection = nm_device_get_applied_connection (NM_DEVICE (self));
 	if (connection) {
 		NMSettingWireless *s_wifi;
 		const char *ip4_method = NULL;
@@ -1716,7 +1716,7 @@ need_new_8021x_secrets (NMDeviceWifi *self,
 
 	g_assert (setting_name != NULL);
 
-	connection = nm_device_get_connection (NM_DEVICE (self));
+	connection = nm_device_get_applied_connection (NM_DEVICE (self));
 	g_return_val_if_fail (connection != NULL, FALSE);
 
 	/* 802.1x stuff only happens in the supplicant's ASSOCIATED state when it's
@@ -1769,7 +1769,7 @@ need_new_wpa_psk (NMDeviceWifi *self,
 
 	g_assert (setting_name != NULL);
 
-	connection = nm_device_get_connection (NM_DEVICE (self));
+	connection = nm_device_get_applied_connection (NM_DEVICE (self));
 	g_return_val_if_fail (connection != NULL, FALSE);
 
 	/* A bad PSK will cause the supplicant to disconnect during the 4-way handshake */
@@ -1882,7 +1882,7 @@ supplicant_iface_state_cb (NMSupplicantInterface *iface,
 			NMSettingWireless *s_wifi;
 			GBytes *ssid;
 
-			connection = nm_device_get_connection (NM_DEVICE (self));
+			connection = nm_device_get_applied_connection (NM_DEVICE (self));
 			g_return_if_fail (connection);
 
 			s_wifi = nm_connection_get_setting_wireless (connection);
@@ -2260,7 +2260,7 @@ act_stage1_prepare (NMDevice *device, NMDeviceStateReason *reason)
 	req = nm_device_get_act_request (NM_DEVICE (self));
 	g_return_val_if_fail (req != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_return_val_if_fail (connection != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
 	s_wireless = nm_connection_get_setting_wireless (connection);
@@ -2387,7 +2387,7 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *reason)
 		goto out;
 	}
 
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_assert (connection);
 
 	s_wireless = nm_connection_get_setting_wireless (connection);
@@ -2485,7 +2485,7 @@ act_stage3_ip4_config_start (NMDevice *device,
 	NMSettingIPConfig *s_ip4;
 	const char *method = NM_SETTING_IP4_CONFIG_METHOD_AUTO;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 	s_ip4 = nm_connection_get_setting_ip4_config (connection);
 	if (s_ip4)
@@ -2507,7 +2507,7 @@ act_stage3_ip6_config_start (NMDevice *device,
 	NMSettingIPConfig *s_ip6;
 	const char *method = NM_SETTING_IP6_CONFIG_METHOD_AUTO;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 	s_ip6 = nm_connection_get_setting_ip6_config (connection);
 	if (s_ip6)
@@ -2528,7 +2528,7 @@ ip4_config_pre_commit (NMDevice *device, NMIP4Config *config)
 	NMSettingWireless *s_wifi;
 	guint32 mtu;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 	s_wifi = nm_connection_get_setting_wireless (connection);
 	g_assert (s_wifi);
@@ -2615,7 +2615,7 @@ act_stage4_ip4_config_timeout (NMDevice *device, NMDeviceStateReason *reason)
 	gboolean may_fail = FALSE, chain_up = FALSE;
 	NMActStageReturn ret;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 
 	s_ip4 = nm_connection_get_setting_ip4_config (connection);
@@ -2636,7 +2636,7 @@ act_stage4_ip6_config_timeout (NMDevice *device, NMDeviceStateReason *reason)
 	gboolean may_fail = FALSE, chain_up = FALSE;
 	NMActStageReturn ret;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 
 	s_ip6 = nm_connection_get_setting_ip6_config (connection);
@@ -2661,7 +2661,7 @@ activation_success_handler (NMDevice *device)
 	req = nm_device_get_act_request (device);
 	g_assert (req);
 
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_assert (connection);
 
 	/* Clear any critical protocol notification in the wifi stack */
@@ -2712,7 +2712,7 @@ activation_failure_handler (NMDevice *device)
 {
 	NMConnection *connection;
 
-	connection = nm_device_get_connection (device);
+	connection = nm_device_get_applied_connection (device);
 	g_assert (connection);
 
 	/* Clear wireless secrets tries on failure */

@@ -53,6 +53,8 @@ NMActRequest *nm_act_request_new          (NMConnection *connection,
 
 NMConnection *nm_act_request_get_connection (NMActRequest *req);
 
+NMConnection *nm_act_request_get_applied_connection (NMActRequest *req);
+
 gboolean      nm_act_request_get_shared (NMActRequest *req);
 
 void          nm_act_request_set_shared (NMActRequest *req, gboolean shared);

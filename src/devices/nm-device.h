@@ -307,6 +307,7 @@ NMDevice *      nm_device_get_master        (NMDevice *dev);
 
 NMActRequest *	nm_device_get_act_request	(NMDevice *dev);
 NMConnection *  nm_device_get_connection	(NMDevice *dev);
+NMConnection *  nm_device_get_applied_connection	(NMDevice *dev);
 
 void            nm_device_removed        (NMDevice *dev);
 

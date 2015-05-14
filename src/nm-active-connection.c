@@ -36,6 +36,7 @@
 #include "gsystem-local-alloc.h"
 #include "nm-active-connection-glue.h"
 #include "nm-glib-compat.h"
+#include "nm-simple-connection.h"
 
 /* Base class for anything implementing the Connection.Active D-Bus interface */
 G_DEFINE_ABSTRACT_TYPE (NMActiveConnection, nm_active_connection, G_TYPE_OBJECT)
@@ -46,6 +47,7 @@ G_DEFINE_ABSTRACT_TYPE (NMActiveConnection, nm_active_connection, G_TYPE_OBJECT)
 
 typedef struct {
 	NMConnection *connection;
+	NMConnection *applied_connection;
 	char *path;
 	char *specific_object;
 	NMDevice *device;
@@ -210,6 +212,12 @@ nm_active_connection_get_connection (NMActiveConnection *self)
 	return NM_ACTIVE_CONNECTION_GET_PRIVATE (self)->connection;
 }
 
+NMConnection *
+nm_active_connection_get_applied_connection (NMActiveConnection *self)
+{
+	return NM_ACTIVE_CONNECTION_GET_PRIVATE (self)->applied_connection;
+}
+
 const char *
 nm_active_connection_get_connection_type (NMActiveConnection *self)
 {
@@ -218,7 +226,7 @@ nm_active_connection_get_connection_type (NMActiveConnection *self)
 	if (priv->connection == NULL)
 		return NULL;
 
-	return nm_connection_get_connection_type (priv->connection);
+	return nm_connection_get_connection_type (priv->applied_connection);
 }
 
 void
@@ -702,8 +710,13 @@ nm_active_connection_init (NMActiveConnection *self)
 static void
 constructed (GObject *object)
 {
+	NMActiveConnectionPrivate *priv = NM_ACTIVE_CONNECTION_GET_PRIVATE (object);
+
 	G_OBJECT_CLASS (nm_active_connection_parent_class)->constructed (object);
-	g_assert (NM_ACTIVE_CONNECTION_GET_PRIVATE (object)->subject);
+	g_assert (priv->subject);
+	g_return_if_fail (priv->connection);
+
+	priv->applied_connection = nm_simple_connection_new_clone (priv->connection);
 }
 
 static void
@@ -864,6 +877,7 @@ dispose (GObject *object)
 	priv->specific_object = NULL;
 
 	g_clear_object (&priv->connection);
+	g_clear_object (&priv->applied_connection);
 
 	_device_cleanup (self);
 

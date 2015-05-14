@@ -522,6 +522,7 @@ set_ip_config_common (NMPPPManager *self,
 	g_object_set_data (G_OBJECT (connection), PPP_MANAGER_SECRET_TRIES, NULL);
 
 	/* Get any custom MTU */
+	connection = nm_act_request_get_applied_connection (priv->act_req);
 	s_ppp = nm_connection_get_setting_ppp (connection);
 	if (s_ppp && out_mtu)
 		*out_mtu = nm_setting_ppp_get_mtu (s_ppp);
@@ -1072,7 +1073,7 @@ nm_ppp_manager_start (NMPPPManager *manager,
 	if (stat ("/dev/ppp", &st) || !S_ISCHR (st.st_mode))
 		nm_utils_modprobe (NULL, "ppp_generic", NULL);
 
-	connection = nm_act_request_get_connection (req);
+	connection = nm_act_request_get_applied_connection (req);
 	g_assert (connection);
 
 	s_ppp = nm_connection_get_setting_ppp (connection);

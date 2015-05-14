@@ -93,7 +93,7 @@ nm_vpn_manager_activate_connection (NMVpnManager *manager,
 		return FALSE;
 	}
 
-	connection = nm_active_connection_get_connection (NM_ACTIVE_CONNECTION (vpn));
+	connection = nm_active_connection_get_applied_connection (NM_ACTIVE_CONNECTION (vpn));
 	g_assert (connection);
 	s_vpn = nm_connection_get_setting_vpn (connection);
 	g_assert (s_vpn);
