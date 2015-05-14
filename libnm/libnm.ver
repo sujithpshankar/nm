@@ -860,4 +860,7 @@ global:
 	nm_setting_wireless_get_powersave;
 	nm_utils_bond_mode_int_to_string;
 	nm_utils_bond_mode_string_to_int;
+	nm_device_reapply;
+	nm_device_reapply_async;
+	nm_device_reapply_finish;
 } libnm_1_0_0;
