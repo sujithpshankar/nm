@@ -730,7 +730,7 @@ of its latest state.
 .B device - show and manage network interfaces
 .br
 .TP
-.SS \fICOMMAND\fP := { status | show | connect | disconnect | delete | wifi }
+.SS \fICOMMAND\fP := { status | show | connect | disconnect | reapply | delete | wifi }
 .sp
 .RS
 .TP
@@ -760,6 +760,12 @@ connections without user/manual intervention. Note that disconnecting software
 devices may mean that the devices will disappear.
 .br
 If '--wait' option is not specified, the default timeout will be 10 seconds.
+.TP
+.B reapply <ifname> ...
+.br
+Attempt to update device with changes to the currently active connection
+made since it was last applied. Not all changes can be appled this way, this is mostly
+useful for trivial changes such as setting a MTU or changing static IP configuration.
 .TP
 .B delete <ifname> ...
 .br
