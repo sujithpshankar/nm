@@ -5916,6 +5916,48 @@ nm_device_reapply_ip4_config (NMDevice *self, gboolean reconfigure, GError **err
 }
 
 static gboolean
+nm_device_reapply_ip6_config (NMDevice *self, gboolean reconfigure, GError **error)
+{
+	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
+	NMConnection *connection = nm_device_get_connection (self);
+	NMConnection *applied = nm_device_get_applied_connection (self);
+	NMSettingIPConfig *s_ip6 = nm_connection_get_setting_ip6_config (connection);
+	NMSettingIPConfig *s_ip6_applied = nm_connection_get_setting_ip6_config (applied);
+	const char *method = nm_setting_ip_config_get_method (s_ip6);
+	const char *method_applied = nm_setting_ip_config_get_method (s_ip6_applied);
+
+	if (strcmp (method, method_applied)) {
+		g_set_error (error,
+			     NM_DEVICE_ERROR,
+			     NM_DEVICE_ERROR_INCOMPATIBLE_CONNECTION,
+			     "Can't change ipv6.method from '%s' to '%s'",
+		             method,
+		             method_applied);
+		return FALSE;
+	}
+
+	if (strcmp (method, NM_SETTING_IP6_CONFIG_METHOD_MANUAL)) {
+		g_set_error (error,
+			     NM_DEVICE_ERROR,
+			     NM_DEVICE_ERROR_INCOMPATIBLE_CONNECTION,
+			     "Can't change configuration of ipv6.method '%s'",
+		             method);
+		return FALSE;
+	}
+
+	if (reconfigure) {
+		g_clear_object (&priv->con_ip6_config);
+		priv->con_ip6_config = nm_ip6_config_new (nm_device_get_ip_ifindex (self));
+		nm_ip6_config_merge_setting (priv->con_ip6_config,
+		                             nm_connection_get_setting_ip6_config (connection),
+		                             nm_device_get_ip6_route_metric (self));
+		ip6_config_merge_and_apply (self, TRUE, NULL);
+	}
+
+	return TRUE;
+}
+
+static gboolean
 nm_device_reapply_connection (NMDevice *self, gboolean reconfigure, GError **error)
 {
 	NMConnection *connection = nm_device_get_connection (self);
@@ -5934,6 +5976,9 @@ nm_device_reapply_connection (NMDevice *self, gboolean reconfigure, GError **err
 	while (g_hash_table_iter_next (&iter, (gpointer *)&setting, NULL)) {
 		if (strcmp (setting, NM_SETTING_IP4_CONFIG_SETTING_NAME) == 0) {
 			if (!nm_device_reapply_ip4_config (self, reconfigure, error))
+				return FALSE;
+		} else if (strcmp (setting, NM_SETTING_IP6_CONFIG_SETTING_NAME) == 0) {
+			if (!nm_device_reapply_ip6_config (self, reconfigure, error))
 				return FALSE;
 		} else if (NM_DEVICE_GET_CLASS (self)->reapply) {
 			if (!NM_DEVICE_GET_CLASS (self)->reapply (self, setting, reconfigure, error))
