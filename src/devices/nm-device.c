@@ -5874,6 +5874,48 @@ delete_on_deactivate_check_and_schedule (NMDevice *self, int ifindex)
 }
 
 static gboolean
+nm_device_reapply_ip4_config (NMDevice *self, gboolean reconfigure, GError **error)
+{
+	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
+	NMConnection *connection = nm_device_get_connection (self);
+	NMConnection *applied = nm_device_get_applied_connection (self);
+	NMSettingIPConfig *s_ip4 = nm_connection_get_setting_ip4_config (connection);
+	NMSettingIPConfig *s_ip4_applied = nm_connection_get_setting_ip4_config (applied);
+	const char *method = nm_setting_ip_config_get_method (s_ip4);
+	const char *method_applied = nm_setting_ip_config_get_method (s_ip4_applied);
+
+	if (strcmp (method, method_applied)) {
+		g_set_error (error,
+			     NM_DEVICE_ERROR,
+			     NM_DEVICE_ERROR_INCOMPATIBLE_CONNECTION,
+			     "Can't change ipv4.method from '%s' to '%s'",
+		             method,
+		             method_applied);
+		return FALSE;
+	}
+
+	if (strcmp (method, NM_SETTING_IP4_CONFIG_METHOD_MANUAL)) {
+		g_set_error (error,
+			     NM_DEVICE_ERROR,
+			     NM_DEVICE_ERROR_INCOMPATIBLE_CONNECTION,
+			     "Can't change configuration of ipv4.method '%s'",
+		             method);
+		return FALSE;
+	}
+
+	if (reconfigure) {
+		g_clear_object (&priv->con_ip4_config);
+		priv->con_ip4_config = nm_ip4_config_new (nm_device_get_ip_ifindex (self));
+		nm_ip4_config_merge_setting (priv->con_ip4_config,
+		                             nm_connection_get_setting_ip4_config (connection),
+		                             nm_device_get_ip4_route_metric (self));
+		ip4_config_merge_and_apply (self, NULL, TRUE, NULL);
+	}
+
+	return TRUE;
+}
+
+static gboolean
 nm_device_reapply_connection (NMDevice *self, gboolean reconfigure, GError **error)
 {
 	NMConnection *connection = nm_device_get_connection (self);
@@ -5890,7 +5932,10 @@ nm_device_reapply_connection (NMDevice *self, gboolean reconfigure, GError **err
 
 	g_hash_table_iter_init (&iter, diffs);
 	while (g_hash_table_iter_next (&iter, (gpointer *)&setting, NULL)) {
-		if (NM_DEVICE_GET_CLASS (self)->reapply) {
+		if (strcmp (setting, NM_SETTING_IP4_CONFIG_SETTING_NAME) == 0) {
+			if (!nm_device_reapply_ip4_config (self, reconfigure, error))
+				return FALSE;
+		} else if (NM_DEVICE_GET_CLASS (self)->reapply) {
 			if (!NM_DEVICE_GET_CLASS (self)->reapply (self, setting, reconfigure, error))
 				return FALSE;
 		} else {
