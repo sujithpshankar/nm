@@ -35,22 +35,12 @@
 
 #define IFCFG_PLUGIN_NAME "ifcfg-suse"
 #define IFCFG_PLUGIN_INFO "(C) 2008 Novell, Inc.  To report bugs please use the NetworkManager mailing list."
-#define IFCFG_DIR SYSCONFDIR "/sysconfig/network"
-#define CONF_DHCP IFCFG_DIR "/dhcp"
 
 static void system_config_interface_init (NMSystemConfigInterface *system_config_interface_class);
 
 G_DEFINE_TYPE_EXTENDED (SCPluginIfcfg, sc_plugin_ifcfg, G_TYPE_OBJECT, 0,
                         G_IMPLEMENT_INTERFACE (NM_TYPE_SYSTEM_CONFIG_INTERFACE,
                                                system_config_interface_init))
-
-#define SC_PLUGIN_IFCFG_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), SC_TYPE_PLUGIN_IFCFG, SCPluginIfcfgPrivate))
-
-
-#define IFCFG_FILE_PATH_TAG "ifcfg-file-path"
-
-typedef struct {
-} SCPluginIfcfgPrivate;
 
 static void
 init (NMSystemConfigInterface *config)
@@ -60,12 +50,6 @@ init (NMSystemConfigInterface *config)
 static void
 sc_plugin_ifcfg_init (SCPluginIfcfg *self)
 {
-}
-
-static void
-dispose (GObject *object)
-{
-	G_OBJECT_CLASS (sc_plugin_ifcfg_parent_class)->dispose (object);
 }
 
 static void
@@ -80,7 +64,7 @@ get_property (GObject *object, guint prop_id,
 		g_value_set_string (value, IFCFG_PLUGIN_INFO);
 		break;
 	case NM_SYSTEM_CONFIG_INTERFACE_PROP_CAPABILITIES:
-		g_value_set_uint (value, 0);
+		g_value_set_uint (value, NM_SYSTEM_CONFIG_INTERFACE_CAP_NONE);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -104,11 +88,8 @@ sc_plugin_ifcfg_class_init (SCPluginIfcfgClass *req_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (req_class);
 
-	g_type_class_add_private (req_class, sizeof (SCPluginIfcfgPrivate));
-
 	object_class->get_property = get_property;
 	object_class->set_property = set_property;
-	object_class->dispose = dispose;
 
 	g_object_class_override_property (object_class,
 							    NM_SYSTEM_CONFIG_INTERFACE_PROP_NAME,

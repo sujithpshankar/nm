@@ -53,7 +53,6 @@
 #include "NetworkManagerUtils.h"
 
 #include "nm-ifcfg-connection.h"
-#include "nm-inotify-helper.h"
 #include "shvar.h"
 #include "reader.h"
 #include "writer.h"
