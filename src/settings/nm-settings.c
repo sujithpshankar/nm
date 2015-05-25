@@ -2098,21 +2098,21 @@ on_proxy_acquired (GObject *object, GAsyncResult *res, NMSettings *self)
 {
 	NMSettingsPrivate *priv = NM_SETTINGS_GET_PRIVATE (self);
 	GError *error = NULL;
-	char *owner;
+	GVariant *variant;
 
 	priv->hostname.hostnamed_proxy = g_dbus_proxy_new_for_bus_finish (res, &error);
 
 	if (priv->hostname.hostnamed_proxy) {
-		owner = g_dbus_proxy_get_name_owner (priv->hostname.hostnamed_proxy);
-		if (!owner) {
-			nm_log_info (LOGD_SETTINGS, "hostname: hostnamed not used");
-			g_clear_object (&priv->hostname.hostnamed_proxy);
-		} else {
-			nm_log_info (LOGD_SETTINGS, "hostname: use hostnamed");
+		variant = g_dbus_proxy_get_cached_property (priv->hostname.hostnamed_proxy, "StaticHostname");
+		if (variant) {
+			nm_log_info (LOGD_SETTINGS, "hostname: using hostnamed");
 			g_signal_connect (priv->hostname.hostnamed_proxy, "g-properties-changed",
 			                  G_CALLBACK (hostnamed_properties_changed), self);
 			hostnamed_properties_changed (priv->hostname.hostnamed_proxy, NULL, NULL, self);
-			g_free (owner);
+			g_variant_unref (variant);
+		} else {
+			nm_log_info (LOGD_SETTINGS, "hostname: couldn't get property from hostnamed");
+			g_clear_object (&priv->hostname.hostnamed_proxy);
 		}
 	} else {
 		nm_log_info (LOGD_SETTINGS, "hostname: hostnamed not used as proxy creation failed with: %s",
