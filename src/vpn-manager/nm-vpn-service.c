@@ -37,10 +37,7 @@
 G_DEFINE_TYPE (NMVpnService, nm_vpn_service, G_TYPE_OBJECT)
 
 typedef struct {
-	char *name;
-	char *dbus_service;
-	char *program;
-	char *namefile;
+	NMVpnPluginInfo *plugin_info;
 
 	NMVpnConnection *active;
 	GSList *pending;
@@ -51,51 +48,36 @@ typedef struct {
 
 #define NM_VPN_SERVICE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_VPN_SERVICE, NMVpnServicePrivate))
 
-#define VPN_CONNECTION_GROUP "VPN Connection"
-
 static gboolean start_pending_vpn (NMVpnService *self, GError **error);
 
 NMVpnService *
-nm_vpn_service_new (const char *namefile, GError **error)
+nm_vpn_service_new (NMVpnPluginInfo *plugin_info, GError **error)
 {
 	NMVpnService *self;
 	NMVpnServicePrivate *priv;
-	GKeyFile *kf;
+	const char *dbus_service;
 
-	g_return_val_if_fail (namefile != NULL, NULL);
-	g_return_val_if_fail (g_path_is_absolute (namefile), NULL);
+	g_return_val_if_fail (NM_IS_VPN_PLUGIN_INFO (plugin_info), NULL);
+	g_return_val_if_fail (nm_vpn_plugin_info_get_filename (plugin_info), NULL);
 
-	kf = g_key_file_new ();
-	if (!g_key_file_load_from_file (kf, namefile, G_KEY_FILE_NONE, error)) {
-		g_key_file_free (kf);
+	dbus_service = nm_vpn_plugin_info_get_service (plugin_info);
+
+	if (   !dbus_service
+	    || !nm_vpn_plugin_info_get_program (plugin_info)) {
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             "missing \"%s\" entry", !dbus_service ? "service" : "program");
 		return NULL;
 	}
 
 	self = (NMVpnService *) g_object_new (NM_TYPE_VPN_SERVICE, NULL);
 	priv = NM_VPN_SERVICE_GET_PRIVATE (self);
-	priv->namefile = g_strdup (namefile);
+	priv->plugin_info = g_object_ref (plugin_info);
 
-	priv->dbus_service = g_key_file_get_string (kf, VPN_CONNECTION_GROUP, "service", error);
-	if (!priv->dbus_service)
-		goto error;
+	priv->service_running = nm_dbus_manager_name_has_owner (nm_dbus_manager_get (), dbus_service);
 
-	priv->program = g_key_file_get_string (kf, VPN_CONNECTION_GROUP, "program", error);
-	if (!priv->program)
-		goto error;
-
-	priv->name = g_key_file_get_string (kf, VPN_CONNECTION_GROUP, "name", error);
-	if (!priv->name)
-		goto error;
-
-	priv->service_running = nm_dbus_manager_name_has_owner (nm_dbus_manager_get (), priv->dbus_service);
-
-	g_key_file_free (kf);
 	return self;
-
-error:
-	g_object_unref (self);
-	g_key_file_free (kf);
-	return NULL;
 }
 
 const char *
@@ -103,15 +85,7 @@ nm_vpn_service_get_dbus_service (NMVpnService *service)
 {
 	g_return_val_if_fail (NM_IS_VPN_SERVICE (service), NULL);
 
-	return NM_VPN_SERVICE_GET_PRIVATE (service)->dbus_service;
-}
-
-const char *
-nm_vpn_service_get_name_file (NMVpnService *service)
-{
-	g_return_val_if_fail (NM_IS_VPN_SERVICE (service), NULL);
-
-	return NM_VPN_SERVICE_GET_PRIVATE (service)->namefile;
+	return nm_vpn_plugin_info_get_service (NM_VPN_SERVICE_GET_PRIVATE (service)->plugin_info);
 }
 
 static void
@@ -172,7 +146,7 @@ _daemon_exec_timeout (gpointer data)
 	NMVpnService *self = NM_VPN_SERVICE (data);
 	NMVpnServicePrivate *priv = NM_VPN_SERVICE_GET_PRIVATE (self);
 
-	nm_log_warn (LOGD_VPN, "VPN service '%s' start timed out", priv->name);
+	nm_log_warn (LOGD_VPN, "VPN service '%s' start timed out", nm_vpn_plugin_info_get_name (priv->plugin_info));
 	priv->start_timeout = 0;
 	nm_vpn_service_stop_connections (self, FALSE, NM_VPN_CONNECTION_STATE_REASON_SERVICE_START_TIMEOUT);
 	return G_SOURCE_REMOVE;
@@ -189,17 +163,21 @@ nm_vpn_service_daemon_exec (NMVpnService *service, GError **error)
 
 	g_return_val_if_fail (NM_IS_VPN_SERVICE (service), FALSE);
 
-	vpn_argv[0] = priv->program;
+	vpn_argv[0] = (char *) nm_vpn_plugin_info_get_program (priv->plugin_info);
 	vpn_argv[1] = NULL;
+
+	g_assert (vpn_argv[0]);
 
 	success = g_spawn_async (NULL, vpn_argv, NULL, 0, nm_utils_setpgid, NULL, &pid, &spawn_error);
 	if (success) {
 		nm_log_info (LOGD_VPN, "VPN service '%s' started (%s), PID %ld",
-		             priv->name, priv->dbus_service, (long int) pid);
+		             nm_vpn_plugin_info_get_name (priv->plugin_info),
+		             nm_vpn_service_get_dbus_service (service),
+		             (long int) pid);
 		priv->start_timeout = g_timeout_add_seconds (5, _daemon_exec_timeout, service);
 	} else {
 		nm_log_warn (LOGD_VPN, "VPN service '%s': could not launch the VPN service. error: (%d) %s.",
-		             priv->name,
+		             nm_vpn_plugin_info_get_name (priv->plugin_info),
 		             spawn_error ? spawn_error->code : -1,
 		             spawn_error && spawn_error->message ? spawn_error->message : "(unknown)");
 
@@ -229,7 +207,7 @@ start_active_vpn (NMVpnService *self, GError **error)
 		return TRUE;
 	} else if (priv->start_timeout == 0) {
 		/* VPN service not running, start it */
-		nm_log_info (LOGD_VPN, "Starting VPN service '%s'...", priv->name);
+		nm_log_info (LOGD_VPN, "Starting VPN service '%s'...", nm_vpn_plugin_info_get_name (priv->plugin_info));
 		return nm_vpn_service_daemon_exec (self, error);
 	}
 
@@ -299,7 +277,7 @@ _name_owner_changed (NMDBusManager *mgr,
 	NMVpnServicePrivate *priv = NM_VPN_SERVICE_GET_PRIVATE (service);
 	gboolean old_owner_good, new_owner_good, success;
 
-	if (strcmp (name, priv->dbus_service))
+	if (strcmp (name, nm_vpn_service_get_dbus_service (service)) != 0)
 		return;
 
 	/* Service changed, no need to wait for the timeout any longer */
@@ -314,14 +292,14 @@ _name_owner_changed (NMDBusManager *mgr,
 	if (!old_owner_good && new_owner_good) {
 		/* service appeared */
 		priv->service_running = TRUE;
-		nm_log_info (LOGD_VPN, "VPN service '%s' appeared; activating connections", priv->name);
+		nm_log_info (LOGD_VPN, "VPN service '%s' appeared; activating connections", nm_vpn_plugin_info_get_name (priv->plugin_info));
 		/* Expect success because the VPN service has already appeared */
 		success = start_active_vpn (service, NULL);
 		g_warn_if_fail (success);
 	} else if (old_owner_good && !new_owner_good) {
 		/* service went away */
 		priv->service_running = FALSE;
-		nm_log_info (LOGD_VPN, "VPN service '%s' disappeared", priv->name);
+		nm_log_info (LOGD_VPN, "VPN service '%s' disappeared", nm_vpn_plugin_info_get_name (priv->plugin_info));
 		nm_vpn_service_stop_connections (service, FALSE, NM_VPN_CONNECTION_STATE_REASON_SERVICE_STOPPED);
 	}
 }
@@ -348,6 +326,8 @@ dispose (GObject *object)
 		priv->start_timeout = 0;
 	}
 
+	g_clear_object (&priv->plugin_info);
+
 	/* VPNService owner is required to stop connections before releasing */
 	g_assert (priv->active == NULL);
 	g_assert (priv->pending == NULL);
@@ -360,19 +340,6 @@ dispose (GObject *object)
 }
 
 static void
-finalize (GObject *object)
-{
-	NMVpnServicePrivate *priv = NM_VPN_SERVICE_GET_PRIVATE (object);
-
-	g_free (priv->name);
-	g_free (priv->dbus_service);
-	g_free (priv->program);
-	g_free (priv->namefile);
-
-	G_OBJECT_CLASS (nm_vpn_service_parent_class)->finalize (object);
-}
-
-static void
 nm_vpn_service_class_init (NMVpnServiceClass *service_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (service_class);
@@ -381,5 +348,4 @@ nm_vpn_service_class_init (NMVpnServiceClass *service_class)
 
 	/* virtual methods */
 	object_class->dispose = dispose;
-	object_class->finalize = finalize;
 }
