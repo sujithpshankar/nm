@@ -25,6 +25,8 @@
 #include <glib-object.h>
 #include <sys/stat.h>
 
+#include "nm-vpn-editor-plugin.h"
+
 G_BEGIN_DECLS
 
 #define NM_TYPE_VPN_PLUGIN_INFO            (nm_vpn_plugin_info_get_type ())
@@ -90,6 +92,17 @@ gboolean         nm_vpn_plugin_info_list_remove           (GSList **list, NMVpnP
 NMVpnPluginInfo *nm_vpn_plugin_info_list_find_by_name     (GSList *list, const char *name);
 NMVpnPluginInfo *nm_vpn_plugin_info_list_find_by_filename (GSList *list, const char *filename);
 NMVpnPluginInfo *nm_vpn_plugin_info_list_find_by_service  (GSList *list, const char *service);
+
+
+NMVpnEditorPlugin *nm_vpn_plugin_info_get_editor_plugin   (NMVpnPluginInfo *plugin_info);
+void               nm_vpn_plugin_info_set_editor_plugin    (NMVpnPluginInfo *self, NMVpnEditorPlugin *plugin);
+NMVpnEditorPlugin *nm_vpn_plugin_info_load_editor_plugin  (NMVpnPluginInfo *plugin_info,
+                                                           gboolean force_retry,
+                                                           int check_owner,
+                                                           NMVpnPluginInfoCheckFile check_file,
+                                                           gpointer user_data,
+                                                           GError **error);
+
 
 G_END_DECLS
 

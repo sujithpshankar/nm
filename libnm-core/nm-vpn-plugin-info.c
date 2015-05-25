@@ -53,6 +53,9 @@ typedef struct {
 	 * value somewhere... let's put it in an internal hash table.
 	 * This contains a clone of all the strings in keyfile. */
 	GHashTable *keys;
+
+	gboolean editor_plugin_loaded;
+	NMVpnEditorPlugin *editor_plugin;
 } NMVpnPluginInfoPrivate;
 
 static void nm_vpn_plugin_info_initable_iface_init (GInitableIface *iface);
@@ -508,6 +511,280 @@ nm_vpn_plugin_info_lookup_property (NMVpnPluginInfo *self, const char *group, co
 
 /*********************************************************************/
 
+NMVpnEditorPlugin *
+nm_vpn_plugin_info_get_editor_plugin (NMVpnPluginInfo *self)
+{
+	g_return_val_if_fail (NM_IS_VPN_PLUGIN_INFO (self), NULL);
+
+	return NM_VPN_PLUGIN_INFO_GET_PRIVATE (self)->editor_plugin;
+}
+
+void
+nm_vpn_plugin_info_set_editor_plugin (NMVpnPluginInfo *self, NMVpnEditorPlugin *plugin)
+{
+	NMVpnPluginInfoPrivate *priv;
+	NMVpnEditorPlugin *old;
+
+	g_return_if_fail (NM_IS_VPN_PLUGIN_INFO (self));
+	g_return_if_fail (!plugin || G_IS_OBJECT (plugin));
+
+	priv = NM_VPN_PLUGIN_INFO_GET_PRIVATE (self);
+
+	if (!plugin) {
+		priv->editor_plugin_loaded = FALSE;
+		g_clear_object (&priv->editor_plugin);
+	} else {
+		old = priv->editor_plugin;
+		priv->editor_plugin = g_object_ref (plugin);
+		priv->editor_plugin_loaded = TRUE;
+		if (old)
+			g_object_unref (old);
+	}
+}
+
+static char *
+_resolve_module_file_name (const char *file_name)
+{
+	char *name = NULL;
+
+	/* g_module_open() is searching for the exact file to load,
+	 * but it doesn't give us a hook to check file permissions
+	 * and ownership. Reimplement the file name resolution.
+	 *
+	 * Copied from g_module_open(). */
+
+	/* check whether we have a readable file right away */
+	if (g_file_test (file_name, G_FILE_TEST_IS_REGULAR))
+		name = g_strdup (file_name);
+
+	/* try completing file name with standard library suffix */
+	if (!name) {
+		name = g_strconcat (file_name, "." G_MODULE_SUFFIX, NULL);
+		if (!g_file_test (name, G_FILE_TEST_IS_REGULAR)) {
+			g_free (name);
+			name = NULL;
+		}
+	}
+
+	/* g_module_open() would also try appending ".la". We don't do that
+	 * because we require the user to specify a shared library (directly). */
+
+	return name;
+}
+
+static char *
+_check_module_filename (const char *name,
+                        int check_owner,
+                        NMVpnPluginInfoCheckFile check_file,
+                        gpointer user_data,
+                        GError **error)
+{
+	gs_free char *name_resolved = NULL;
+	char *s;
+
+	if (!g_path_is_absolute (name)) {
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             _("path is not absolute (%s)"), name);
+		return NULL;
+	}
+
+	name_resolved = _resolve_module_file_name (name);
+
+	if (!name_resolved) {
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             _("could not resolve plugin path (%s)"), name);
+		return NULL;
+	}
+
+	if (g_str_has_suffix (name_resolved, ".la")) {
+		/* g_module_open() treats files that end with .la special.
+		 * We don't want to parse the libtool archive. Just error out. */
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             _("libtool archives are not supported (%s)"), name_resolved);
+		return NULL;
+	}
+
+	if (!_check_file (name_resolved,
+	                  check_owner,
+	                  check_file,
+	                  user_data,
+	                  NULL,
+	                  error)) {
+		return NULL;
+	}
+
+	s = name_resolved;
+	name_resolved = NULL;
+	return s;
+}
+
+NMVpnEditorPlugin *
+nm_vpn_plugin_info_load_editor_plugin (NMVpnPluginInfo *self,
+                                       gboolean force_retry,
+                                       int check_owner,
+                                       NMVpnPluginInfoCheckFile check_file,
+                                       gpointer user_data,
+                                       GError **error)
+{
+	NMVpnPluginInfoPrivate *priv;
+	gs_free char *str_release_1 = NULL;
+	gs_free char *str_release_2 = NULL;
+	gs_free char *str_release_3 = NULL;
+	const char *plugin, *module_filename;
+	GModule *module = NULL;
+	gs_free_error GError *error_1 = NULL;
+	NMVpnEditorPluginFactory factory = NULL;
+	NMVpnEditorPlugin *editor_plugin = NULL;
+
+	g_return_val_if_fail (NM_IS_VPN_PLUGIN_INFO (self), NULL);
+
+	priv = NM_VPN_PLUGIN_INFO_GET_PRIVATE (self);
+
+	if (priv->editor_plugin)
+		return priv->editor_plugin;
+
+	plugin = nm_vpn_plugin_info_get_plugin (self);
+	if (!plugin) {
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             _("%s: missing \"plugin\" setting"), priv->name);
+		return NULL;
+	}
+
+	/* unless @force_retry is TRUE, we only try once to load the plugin.
+	 * If that is unsuccessful, we error out immediately. */
+	if (priv->editor_plugin_loaded && !force_retry) {
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             _("%s: don't retry loading plugin which already failed previously"), priv->name);
+		return NULL;
+	}
+	priv->editor_plugin_loaded = TRUE;
+
+	str_release_1 = _check_module_filename (plugin,
+	                                        check_owner,
+	                                        check_file,
+	                                        user_data,
+	                                        &error_1);
+	module_filename = str_release_1;
+
+	if (module_filename)
+		module = g_module_open (module_filename, G_MODULE_BIND_LAZY | G_MODULE_BIND_LOCAL);
+
+	if (   !module
+	    && strlen (LIBDIR) > 0) {
+		char *basename;
+
+		/* nm-applet used a fallback to search LIBDIR. Do that too, but obviously
+		 * libnm's LIBDIR might differ from nm-applet's LIBDIR. */
+
+
+		/* Remove any path and extension components, then reconstruct path
+		 * to the SO in LIBDIR */
+		basename = g_path_get_basename (plugin);
+		str_release_2 = g_strdup_printf ("%s/NetworkManager/%s", LIBDIR, basename);
+		g_free (basename);
+
+		str_release_3 = _check_module_filename (str_release_2,
+		                                        check_owner,
+		                                        check_file,
+		                                        user_data,
+		                                        NULL);
+		module_filename = str_release_3;
+
+		if (module_filename)
+			module = g_module_open (module_filename, G_MODULE_BIND_LAZY | G_MODULE_BIND_LOCAL);
+	}
+
+	if (!module) {
+		if (error_1) {
+			g_propagate_error (error, error_1);
+			error_1 = NULL;
+		} else {
+			g_set_error (error,
+			             NM_VPN_PLUGIN_ERROR,
+			             NM_VPN_PLUGIN_ERROR_FAILED,
+			             _("%s: cannot load plugin %s"), priv->name, plugin);
+		}
+		return NULL;
+	}
+	g_clear_error (&error_1);
+
+	if (g_module_symbol (module, "nm_vpn_editor_plugin_factory", (gpointer) &factory)) {
+		gs_free_error GError *factory_error = NULL;
+		gboolean success = FALSE;
+		const char *service;
+
+
+		editor_plugin = factory (&factory_error);
+		if (editor_plugin) {
+			gs_free char *plug_name = NULL, *plug_service = NULL;
+
+			/* Validate plugin properties */
+			service = nm_vpn_plugin_info_lookup_property (self, NM_VPN_PLUGIN_INFO_KF_GROUP_CONNECTION, "service");
+
+			g_object_get (G_OBJECT (editor_plugin),
+			              NM_VPN_EDITOR_PLUGIN_NAME, &plug_name,
+			              NM_VPN_EDITOR_PLUGIN_SERVICE, &plug_service,
+			              NULL);
+
+			if (   !plug_name
+			    || strcmp (plug_name, priv->name)) {
+				g_set_error (error,
+				             NM_VPN_PLUGIN_ERROR,
+				             NM_VPN_PLUGIN_ERROR_FAILED,
+				             _("%s: cannot load VPN plugin in '%s': invalid plugin name"),
+				             priv->name, g_module_name (module));
+			} else if (   service
+			           && g_strcmp0 (plug_service, service)) {
+				g_set_error (error,
+				             NM_VPN_PLUGIN_ERROR,
+				             NM_VPN_PLUGIN_ERROR_FAILED,
+				             _("%s: cannot load VPN plugin in '%s': invalid service name"),
+				             priv->name, g_module_name (module));
+			} else {
+				/* Success! */
+				g_object_set_data_full (G_OBJECT (editor_plugin), "gmodule", module,
+				                        (GDestroyNotify) g_module_close);
+				success = TRUE;
+			}
+		} else {
+			if (factory_error) {
+				g_propagate_error (error, factory_error);
+				factory_error = NULL;
+			} else {
+				g_set_error (error,
+				             NM_VPN_PLUGIN_ERROR,
+				             NM_VPN_PLUGIN_ERROR_FAILED,
+				             _("%s: unknown error initiating plugin %s"), priv->name, plugin);
+			}
+		}
+
+		if (!success)
+			g_module_close (module);
+	} else {
+		g_set_error (error,
+		             NM_VPN_PLUGIN_ERROR,
+		             NM_VPN_PLUGIN_ERROR_FAILED,
+		             _ ("%s: failed to load nm_vpn_editor_plugin_factory() from %s (%s)"),
+		             priv->name, g_module_name (module), g_module_error ());
+		g_module_close (module);
+	}
+
+	priv->editor_plugin = editor_plugin;
+	return editor_plugin;
+}
+
+/*********************************************************************/
+
 NMVpnPluginInfo *
 nm_vpn_plugin_info_new_from_file (const char *filename,
                                   GError **error)
@@ -633,6 +910,17 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
+dispose (GObject *object)
+{
+	NMVpnPluginInfo *self = NM_VPN_PLUGIN_INFO (object);
+	NMVpnPluginInfoPrivate *priv = NM_VPN_PLUGIN_INFO_GET_PRIVATE (self);
+
+	g_clear_object (&priv->editor_plugin);
+
+	G_OBJECT_CLASS (nm_vpn_plugin_info_parent_class)->dispose (object);
+}
+
+static void
 finalize (GObject *object)
 {
 	NMVpnPluginInfo *self = NM_VPN_PLUGIN_INFO (object);
@@ -656,6 +944,7 @@ nm_vpn_plugin_info_class_init (NMVpnPluginInfoClass *plugin_class)
 	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
+	object_class->dispose      = dispose;
 	object_class->finalize     = finalize;
 
 	/* properties */
