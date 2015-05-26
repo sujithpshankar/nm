@@ -75,6 +75,7 @@ _LOG_DECLARE_SELF (NMDevice);
 
 static void impl_device_disconnect (NMDevice *self, DBusGMethodInvocation *context);
 static void impl_device_delete     (NMDevice *self, DBusGMethodInvocation *context);
+static void impl_device_generate_settings (NMDevice *self, DBusGMethodInvocation *context);
 
 #include "nm-device-glue.h"
 
@@ -2181,6 +2182,79 @@ nm_device_generate_connection (NMDevice *self, NMDevice *master)
 	}
 
 	return connection;
+}
+
+static void
+generate_settings_cb (NMDevice *self,
+                      DBusGMethodInvocation *context,
+                      GError *error,
+                      gpointer user_data)
+{
+	NMDevicePrivate *priv = NM_DEVICE_GET_PRIVATE (self);
+	GError *local = NULL;
+
+	if (error) {
+		dbus_g_method_return_error (context, error);
+		return;
+	}
+
+	/* Authorized */
+	if (priv->state != NM_DEVICE_STATE_ACTIVATED) {
+		local = g_error_new_literal (NM_DEVICE_ERROR,
+		                             NM_DEVICE_ERROR_NOT_ACTIVE,
+		                             "Device is not activated");
+		dbus_g_method_return_error (context, local);
+		g_error_free (local);
+	} else {
+		NMConnection *connection = nm_device_generate_connection (self, nm_device_get_master (self));
+
+		if (connection) {
+			GVariant *settings;
+			GHashTable *settings_hash;
+
+			settings = nm_connection_to_dbus (connection, NM_CONNECTION_SERIALIZE_NO_SECRETS);
+			g_assert (settings);
+			settings_hash = nm_utils_connection_dict_to_hash (settings);
+			dbus_g_method_return (context, settings_hash);
+			g_hash_table_destroy (settings_hash);
+			g_variant_unref (settings);
+			g_object_unref (connection);
+		} else {
+			local = g_error_new_literal (NM_DEVICE_ERROR,
+			                          NM_DEVICE_ERROR_FAILED,
+			                          "Can't generate settings for the device");
+			dbus_g_method_return_error (context, local);
+			g_error_free (local);
+		}
+	}
+}
+
+static void
+impl_device_generate_settings (NMDevice *self, DBusGMethodInvocation *context)
+{
+	NMConnection *connection;
+	GError *error = NULL;
+
+	if (NM_DEVICE_GET_PRIVATE (self)->act_request == NULL) {
+		error = g_error_new_literal (NM_DEVICE_ERROR,
+		                             NM_DEVICE_ERROR_NOT_ACTIVE,
+		                             "This device is not active");
+		dbus_g_method_return_error (context, error);
+		g_error_free (error);
+		return;
+	}
+
+	connection = nm_device_get_connection (self);
+	g_assert (connection);
+
+	/* Ask the manager to authenticate this request for us */
+	g_signal_emit (self, signals[AUTH_REQUEST], 0,
+	               context,
+	               connection,
+	               NM_AUTH_PERMISSION_NETWORK_CONTROL,
+	               TRUE,
+	               generate_settings_cb,
+	               NULL);
 }
 
 gboolean

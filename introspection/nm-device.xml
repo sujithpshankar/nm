@@ -163,6 +163,19 @@
       </tp:docstring>
     </method>
 
+    <method name="GenerateSettings">
+        <tp:docstring>
+            Get the settings maps describing the currently effective network configuration for the device.
+        </tp:docstring>
+        <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="impl_device_generate_settings"/>
+        <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
+        <arg name="settings" type="a{sa{sv}}" direction="out" tp:type="String_String_Variant_Map_Map">
+            <tp:docstring>
+                The nested settings maps describing this object.
+            </tp:docstring>
+        </arg>
+    </method>
+
     <signal name="StateChanged">
       <arg name="new_state" type="u" tp:type="NM_DEVICE_STATE">
         <tp:docstring>
