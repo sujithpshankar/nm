@@ -20,14 +20,12 @@
 #define _VPN_HELPERS_H_
 
 #include <glib.h>
-#include <nm-connection.h>
 
-#define NM_VPN_API_SUBJECT_TO_CHANGE
-#include <nm-vpn-plugin-ui-interface.h>
+#include <NetworkManager.h>
 
-GHashTable *vpn_get_plugins (GError **error);
+GSList *vpn_get_plugins (void);
 
-NMVpnPluginUiInterface *vpn_get_plugin_by_service (const char *service);
+NMVpnEditorPlugin *vpn_get_plugin_by_service (const char *service);
 
 typedef void (*VpnImportSuccessCallback) (NMConnection *connection, gpointer user_data);
 void vpn_import (VpnImportSuccessCallback callback, gpointer user_data);
