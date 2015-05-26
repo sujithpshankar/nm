@@ -2102,44 +2102,14 @@ setup_hostname_file_monitors (NMSettings *self)
 	hostname_maybe_changed (self);
 }
 
-static void
-on_proxy_acquired (GObject *object, GAsyncResult *res, NMSettings *self)
-{
-	NMSettingsPrivate *priv = NM_SETTINGS_GET_PRIVATE (self);
-	GError *error = NULL;
-	GVariant *variant;
-
-	priv->hostname.hostnamed_proxy = g_dbus_proxy_new_for_bus_finish (res, &error);
-
-	if (priv->hostname.hostnamed_proxy) {
-		variant = g_dbus_proxy_get_cached_property (priv->hostname.hostnamed_proxy, "StaticHostname");
-		if (variant) {
-			nm_log_info (LOGD_SETTINGS, "hostname: using hostnamed");
-			g_signal_connect (priv->hostname.hostnamed_proxy, "g-properties-changed",
-			                  G_CALLBACK (hostnamed_properties_changed), self);
-			hostnamed_properties_changed (priv->hostname.hostnamed_proxy, NULL, NULL, self);
-			g_variant_unref (variant);
-		} else {
-			nm_log_info (LOGD_SETTINGS, "hostname: couldn't get property from hostnamed");
-			g_clear_object (&priv->hostname.hostnamed_proxy);
-		}
-	} else {
-		nm_log_info (LOGD_SETTINGS, "hostname: hostnamed not used as proxy creation failed with: %s",
-		             error->message);
-		g_clear_error (&error);
-	}
-
-	if (!priv->hostname.hostnamed_proxy)
-		setup_hostname_file_monitors (self);
-
-	g_object_unref (self);
-}
-
 NMSettings *
 nm_settings_new (GError **error)
 {
 	NMSettings *self;
 	NMSettingsPrivate *priv;
+	GDBusProxy *proxy;
+	GVariant *variant;
+	GError *local_error = NULL;
 
 	self = g_object_new (NM_TYPE_SETTINGS, NULL);
 
@@ -2157,11 +2127,31 @@ nm_settings_new (GError **error)
 	load_connections (self);
 	check_startup_complete (self);
 
-	g_dbus_proxy_new_for_bus (G_BUS_TYPE_SYSTEM, 0, NULL,
-	                          HOSTNAMED_SERVICE_NAME, HOSTNAMED_SERVICE_PATH,
-	                          HOSTNAMED_SERVICE_INTERFACE, NULL,
-	                          (GAsyncReadyCallback) on_proxy_acquired,
-	                          g_object_ref (self));
+	proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM, 0, NULL,
+	                                       HOSTNAMED_SERVICE_NAME, HOSTNAMED_SERVICE_PATH,
+	                                       HOSTNAMED_SERVICE_INTERFACE, NULL, &local_error);
+	if (proxy) {
+		variant = g_dbus_proxy_get_cached_property (proxy, "StaticHostname");
+		if (variant) {
+			nm_log_info (LOGD_SETTINGS, "hostname: using hostnamed");
+			priv->hostname.hostnamed_proxy = proxy;
+			g_signal_connect (proxy, "g-properties-changed",
+			                  G_CALLBACK (hostnamed_properties_changed), self);
+			hostnamed_properties_changed (proxy, NULL, NULL, self);
+			g_variant_unref (variant);
+		} else {
+			nm_log_info (LOGD_SETTINGS, "hostname: couldn't get property from hostnamed");
+			g_object_unref (proxy);
+		}
+	} else {
+		nm_log_info (LOGD_SETTINGS, "hostname: hostnamed not used as proxy creation failed with: %s",
+		             local_error->message);
+		g_clear_error (&local_error);
+	}
+
+	if (!priv->hostname.hostnamed_proxy)
+		setup_hostname_file_monitors (self);
+
 	nm_dbus_manager_register_object (priv->dbus_mgr, NM_DBUS_PATH_SETTINGS, self);
 	return self;
 }
