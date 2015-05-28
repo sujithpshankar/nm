@@ -203,7 +203,6 @@ nm_vpn_plugin_info_check_file (const char *filename,
 }
 
 typedef struct {
-	char *filename;
 	NMVpnPluginInfo *plugin_info;
 	struct stat stat;
 } LoadDirInfo;
@@ -219,7 +218,8 @@ _sort_files (LoadDirInfo *a, LoadDirInfo *b)
 		return 1;
 	if (ta > tb)
 		return -1;
-	return g_strcmp0 (a->filename, b->filename);
+	return g_strcmp0 (nm_vpn_plugin_info_get_filename (a->plugin_info),
+	                  nm_vpn_plugin_info_get_filename (b->plugin_info));
 }
 
 const char *
@@ -271,11 +271,11 @@ nm_vpn_plugin_info_load_dir (const char *dirname,
 	array = g_array_new (FALSE, FALSE, sizeof (LoadDirInfo));
 
 	while ((fn = g_dir_read_name (dir))) {
-		LoadDirInfo info = {
-		    .filename = g_build_filename (dirname, fn, NULL),
-		};
+		gs_free char *filename = NULL;
+		LoadDirInfo info = { 0 };
 
-		if (nm_vpn_plugin_info_check_file_full (info.filename,
+		filename = g_build_filename (dirname, fn, NULL);
+		if (nm_vpn_plugin_info_check_file_full (filename,
 		                                        FALSE,
 		                                        do_validate_filename,
 		                                        check_owner,
@@ -283,13 +283,12 @@ nm_vpn_plugin_info_load_dir (const char *dirname,
 		                                        user_data,
 		                                        &info.stat,
 		                                        NULL)) {
-			info.plugin_info = nm_vpn_plugin_info_new_from_file (info.filename, NULL);
+			info.plugin_info = nm_vpn_plugin_info_new_from_file (filename, NULL);
 			if (info.plugin_info) {
 				g_array_append_val (array, info);
 				continue;
 			}
 		}
-		g_free (info.filename);
 	}
 	g_dir_close (dir);
 
@@ -299,13 +298,10 @@ nm_vpn_plugin_info_load_dir (const char *dirname,
 	 * reject the same files in face of duplicates. */
 	g_array_sort (array, (GCompareFunc) _sort_files);
 
-	for (i = 0; i < array->len; i++) {
-		LoadDirInfo *info = &g_array_index (array, LoadDirInfo, i);
+	for (i = 0; i < array->len; i++)
+		res = g_slist_prepend (res, g_array_index (array, LoadDirInfo, i).plugin_info);
 
-		res = g_slist_prepend (res, info->plugin_info);
-		g_free (info->filename);
-	}
-	g_array_free (array, TRUE);
+	g_array_unref (array);
 
 	return g_slist_reverse (res);
 }
