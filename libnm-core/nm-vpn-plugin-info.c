@@ -359,8 +359,6 @@ nm_vpn_plugin_info_list_add (GSList **list, NMVpnPluginInfo *plugin_info, GError
 {
 	GSList *iter;
 	const char *name;
-	GSList *iter_same = NULL;
-	NMVpnPluginInfo *old;
 
 	g_return_val_if_fail (list, FALSE);
 	g_return_val_if_fail (NM_IS_VPN_PLUGIN_INFO (plugin_info), FALSE);
@@ -371,22 +369,21 @@ nm_vpn_plugin_info_list_add (GSList **list, NMVpnPluginInfo *plugin_info, GError
 			return TRUE;
 
 		if (strcmp (nm_vpn_plugin_info_get_name (iter->data), name) == 0) {
-			iter_same = iter;
-			continue;
+			g_set_error (error,
+			             NM_VPN_PLUGIN_ERROR,
+			             NM_VPN_PLUGIN_ERROR_FAILED,
+			             _("there exists a conflicting plugin with the same name (%s)"),
+			             name);
+			return FALSE;
 		}
 
-		/* the plugin must have unique names for certain properties. E.g. two different
+		/* the plugin must have unique values for certain properties. E.g. two different
 		 * plugins cannot share the same D-Bus service name. */
 		if (!_check_no_conflict (plugin_info, iter->data, error))
 			return FALSE;
 	}
 
-	if (iter_same) {
-		old = iter_same->data;
-		iter_same->data = g_object_ref (plugin_info);
-		g_object_unref (old);
-	} else
-		*list = g_slist_append (*list, g_object_ref (plugin_info));
+	*list = g_slist_append (*list, g_object_ref (plugin_info));
 	return TRUE;
 }
 
