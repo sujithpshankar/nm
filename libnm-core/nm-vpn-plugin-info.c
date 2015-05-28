@@ -225,7 +225,14 @@ _sort_files (LoadDirInfo *a, LoadDirInfo *b)
 const char *
 nm_vpn_plugin_info_get_default_dir ()
 {
-	return DEFAULT_DIR;
+	static const char *dir = NULL;
+
+	if (G_UNLIKELY (!dir)) {
+		dir = g_getenv ("NM_VPN_PLUGIN_DIR");
+		if (!dir || !*dir)
+			dir = DEFAULT_DIR;
+	}
+	return dir;
 }
 
 /**
