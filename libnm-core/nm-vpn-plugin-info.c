@@ -638,7 +638,7 @@ nm_vpn_plugin_info_load_editor_plugin (NMVpnPluginInfo *self,
 	gs_free char *str_release_3 = NULL;
 	const char *plugin, *module_filename;
 	GModule *module = NULL;
-	gs_free_error GError *error_1 = NULL;
+	gs_free_error GError *local = NULL;
 	NMVpnEditorPluginFactory factory = NULL;
 	NMVpnEditorPlugin *editor_plugin = NULL;
 
@@ -673,14 +673,14 @@ nm_vpn_plugin_info_load_editor_plugin (NMVpnPluginInfo *self,
 	                                        check_owner,
 	                                        check_file,
 	                                        user_data,
-	                                        &error_1);
+	                                        &local);
 	module_filename = str_release_1;
 
 	if (module_filename)
 		module = g_module_open (module_filename, G_MODULE_BIND_LAZY | G_MODULE_BIND_LOCAL);
 
 	if (   !module
-	    && strlen (LIBDIR) > 0) {
+	    && STRLEN (LIBDIR) > 0) {
 		char *basename;
 
 		/* nm-applet used a fallback to search LIBDIR. Do that too, but obviously
@@ -705,9 +705,9 @@ nm_vpn_plugin_info_load_editor_plugin (NMVpnPluginInfo *self,
 	}
 
 	if (!module) {
-		if (error_1) {
-			g_propagate_error (error, error_1);
-			error_1 = NULL;
+		if (local) {
+			g_propagate_error (error, local);
+			local = NULL;
 		} else {
 			g_set_error (error,
 			             NM_VPN_PLUGIN_ERROR,
@@ -716,7 +716,7 @@ nm_vpn_plugin_info_load_editor_plugin (NMVpnPluginInfo *self,
 		}
 		return NULL;
 	}
-	g_clear_error (&error_1);
+	g_clear_error (&local);
 
 	if (g_module_symbol (module, "nm_vpn_editor_plugin_factory", (gpointer) &factory)) {
 		gs_free_error GError *factory_error = NULL;
@@ -729,15 +729,14 @@ nm_vpn_plugin_info_load_editor_plugin (NMVpnPluginInfo *self,
 			gs_free char *plug_name = NULL, *plug_service = NULL;
 
 			/* Validate plugin properties */
-			service = nm_vpn_plugin_info_lookup_property (self, NM_VPN_PLUGIN_INFO_KF_GROUP_CONNECTION, "service");
+			service = nm_vpn_plugin_info_get_service (self);
 
 			g_object_get (G_OBJECT (editor_plugin),
 			              NM_VPN_EDITOR_PLUGIN_NAME, &plug_name,
 			              NM_VPN_EDITOR_PLUGIN_SERVICE, &plug_service,
 			              NULL);
 
-			if (   !plug_name
-			    || strcmp (plug_name, priv->name)) {
+			if (g_strcmp0 (plug_name, priv->name) != 0) {
 				g_set_error (error,
 				             NM_VPN_PLUGIN_ERROR,
 				             NM_VPN_PLUGIN_ERROR_FAILED,
