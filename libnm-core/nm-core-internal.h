@@ -121,6 +121,13 @@ char **     _nm_utils_strsplit_set (const char *str,
                                     const char *delimiters,
                                     int max_tokens);
 
+gboolean _nm_utils_check_file (const char *filename,
+                               int check_owner,
+                               NMUtilsCheckFilePredicate check_file,
+                               gpointer user_data,
+                               struct stat *out_st,
+                               GError **error);
+
 #define NM_UTILS_UUID_TYPE_LEGACY            0
 #define NM_UTILS_UUID_TYPE_VARIANT3          1
 
