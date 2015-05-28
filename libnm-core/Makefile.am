@@ -5,6 +5,7 @@ SUBDIRS = . tests
 AM_CPPFLAGS = \
 	-I${top_srcdir}/include \
 	-DG_LOG_DOMAIN=\""libnm"\" \
+	-DLIBDIR=\""$(libdir)"\" \
 	-DLOCALEDIR=\"$(datadir)/locale\" \
 	-DNMCONFDIR=\"$(nmconfdir)\" \
 	-DNMLIBDIR=\"$(nmlibdir)\" \
