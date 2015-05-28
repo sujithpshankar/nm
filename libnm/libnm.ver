@@ -879,5 +879,6 @@ global:
 	nm_vpn_plugin_info_lookup_property;
 	nm_vpn_plugin_info_new_from_file;
 	nm_vpn_plugin_info_new_with_data;
+	nm_vpn_plugin_info_set_editor_plugin;
 	nm_vpn_plugin_info_validate_filename;
 } libnm_1_0_0;
