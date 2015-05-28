@@ -870,6 +870,7 @@ global:
 	nm_vpn_plugin_info_get_default_dir_lib;
 	nm_vpn_plugin_info_get_default_dir_user;
 	nm_vpn_plugin_info_get_filename;
+	nm_vpn_plugin_info_get_editor_plugin;
 	nm_vpn_plugin_info_get_name;
 	nm_vpn_plugin_info_get_plugin;
 	nm_vpn_plugin_info_get_program;
@@ -882,8 +883,11 @@ global:
 	nm_vpn_plugin_info_list_remove;
 	nm_vpn_plugin_info_load_dir;
 	nm_vpn_plugin_info_load_dir_full;
+	nm_vpn_plugin_info_load_editor_plugin;
+	nm_vpn_plugin_info_load_editor_plugin_full;
 	nm_vpn_plugin_info_lookup_property;
 	nm_vpn_plugin_info_new_from_file;
 	nm_vpn_plugin_info_new_with_data;
+	nm_vpn_plugin_info_set_editor_plugin;
 	nm_vpn_plugin_info_validate_filename;
 } libnm_1_0_0;
