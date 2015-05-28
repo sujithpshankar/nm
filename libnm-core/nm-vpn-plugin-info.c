@@ -84,11 +84,15 @@ _check_file (const char *filename,
              int check_owner,
              NMVpnPluginInfoCheckFile check_file,
              gpointer user_data,
+             struct stat *out_st,
              GError **error)
 {
-	struct stat st;
+	struct stat st_backup;
 
-	if (stat (filename, &st) != 0) {
+	if (!out_st)
+		out_st = &st_backup;
+
+	if (stat (filename, out_st) != 0) {
 		int errsv = errno;
 
 		g_set_error (error,
@@ -99,7 +103,7 @@ _check_file (const char *filename,
 	}
 
 	/* ignore non-files. */
-	if (!S_ISREG (st.st_mode)) {
+	if (!S_ISREG (out_st->st_mode)) {
 		g_set_error (error,
 		             NM_VPN_PLUGIN_ERROR,
 		             NM_VPN_PLUGIN_ERROR_FAILED,
@@ -110,18 +114,18 @@ _check_file (const char *filename,
 	/* with check_owner enabled, check that the file belongs to the
 	 * owner or root. */
 	if (   check_owner >= 0
-	    && (st.st_uid != 0 && st.st_uid != check_owner)) {
+	    && (out_st->st_uid != 0 && out_st->st_uid != check_owner)) {
 		g_set_error (error,
 		             NM_VPN_PLUGIN_ERROR,
 		             NM_VPN_PLUGIN_ERROR_FAILED,
-		             _("invalid file owner %d for %s"), st.st_uid, filename);
+		             _("invalid file owner %d for %s"), out_st->st_uid, filename);
 		return FALSE;
 	}
 
 	/* with check_owner enabled, check that the file cannot be modified
 	 * by other users (except root). */
 	if (   check_owner >= 0
-	    && NM_FLAGS_ANY (st.st_mode, S_IWGRP | S_IWOTH | S_ISUID)) {
+	    && NM_FLAGS_ANY (out_st->st_mode, S_IWGRP | S_IWOTH | S_ISUID)) {
 		g_set_error (error,
 		             NM_VPN_PLUGIN_ERROR,
 		             NM_VPN_PLUGIN_ERROR_FAILED,
@@ -130,7 +134,7 @@ _check_file (const char *filename,
 	}
 
 	if (    check_file
-	    && !check_file (filename, &st, user_data, error)) {
+	    && !check_file (filename, out_st, user_data, error)) {
 		if (error && !*error) {
 			g_set_error (error,
 			             NM_VPN_PLUGIN_ERROR,
@@ -143,14 +147,15 @@ _check_file (const char *filename,
 	return TRUE;
 }
 
-gboolean
-nm_vpn_plugin_info_check_file (const char *filename,
-                               gboolean check_absolute,
-                               gboolean do_validate_filename,
-                               int check_owner,
-                               NMVpnPluginInfoCheckFile check_file,
-                               gpointer user_data,
-                               GError **error)
+static gboolean
+nm_vpn_plugin_info_check_file_full (const char *filename,
+                                    gboolean check_absolute,
+                                    gboolean do_validate_filename,
+                                    int check_owner,
+                                    NMVpnPluginInfoCheckFile check_file,
+                                    gpointer user_data,
+                                    struct stat *out_st,
+                                    GError **error)
 {
 	if (!filename || !*filename) {
 		g_set_error (error,
@@ -181,7 +186,20 @@ nm_vpn_plugin_info_check_file (const char *filename,
 	                    check_owner,
 	                    check_file,
 	                    user_data,
+	                    out_st,
 	                    error);
+}
+
+gboolean
+nm_vpn_plugin_info_check_file (const char *filename,
+                               gboolean check_absolute,
+                               gboolean do_validate_filename,
+                               int check_owner,
+                               NMVpnPluginInfoCheckFile check_file,
+                               gpointer user_data,
+                               GError **error)
+{
+	return nm_vpn_plugin_info_check_file_full (filename, check_absolute, do_validate_filename, check_owner, check_file, user_data, NULL, error);
 }
 
 typedef struct {
@@ -250,13 +268,14 @@ nm_vpn_plugin_info_load_dir (const char *dirname,
 		    .filename = g_build_filename (dirname, fn, NULL),
 		};
 
-		if (nm_vpn_plugin_info_check_file (info.filename,
-		                                   FALSE,
-		                                   do_validate_filename,
-		                                   check_owner,
-		                                   check_file,
-		                                   user_data,
-		                                   NULL)) {
+		if (nm_vpn_plugin_info_check_file_full (info.filename,
+		                                        FALSE,
+		                                        do_validate_filename,
+		                                        check_owner,
+		                                        check_file,
+		                                        user_data,
+		                                        &info.stat,
+		                                        NULL)) {
 			info.plugin_info = nm_vpn_plugin_info_new_from_file (info.filename, NULL);
 			if (info.plugin_info) {
 				g_array_append_val (array, info);
