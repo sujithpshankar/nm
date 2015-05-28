@@ -3331,6 +3331,10 @@ nm_utils_bond_mode_string_to_int (const char *mode)
 
 /**********************************************************************************************/
 
+#define STRSTRDICTKEY_V1_SET  0x01
+#define STRSTRDICTKEY_V2_SET  0x02
+#define STRSTRDICTKEY_ALL_SET 0x03
+
 struct _NMUtilsStrStrDictKey {
 	char type;
 	char data[1];
@@ -3344,15 +3348,15 @@ _nm_utils_strstrdictkey_hash (gconstpointer a)
 	guint32 h = 5381;
 
 	if (k) {
-		if (((int) k->type) & ~0x03)
+		if (((int) k->type) & ~STRSTRDICTKEY_ALL_SET)
 			g_return_val_if_reached (0);
 
 		h = (h << 5) + h + k->type;
-		if (k->type & 0x03) {
+		if (k->type & STRSTRDICTKEY_ALL_SET) {
 			p = (void *) k->data;
 			for (; *p != '\0'; p++)
 				h = (h << 5) + h + *p;
-			if (k->type == 0x03) {
+			if (k->type == STRSTRDICTKEY_ALL_SET) {
 				/* the key contains two strings. Continue... */
 				h = (h << 5) + h + '\0';
 				for (p++; *p != '\0'; p++)
@@ -3378,11 +3382,11 @@ _nm_utils_strstrdictkey_equal  (gconstpointer a, gconstpointer b)
 	if (k1->type != k2->type)
 		return FALSE;
 
-	if (k1->type & 0x03) {
+	if (k1->type & STRSTRDICTKEY_ALL_SET) {
 		if (strcmp (k1->data, k2->data) != 0)
 			return FALSE;
 
-		if (k1->type == 0x03) {
+		if (k1->type == STRSTRDICTKEY_ALL_SET) {
 			gsize l = strlen (k1->data) + 1;
 
 			return strcmp (&k1->data[l], &k2->data[l]) == 0;
@@ -3406,11 +3410,11 @@ _nm_utils_strstrdictkey_create (const char *v1, const char *v2)
 	 * Thus, in @type we encode which strings we have present
 	 * as not-NULL. */
 	if (v1) {
-		type |= 0x01;
+		type |= STRSTRDICTKEY_V1_SET;
 		l1 = strlen (v1) + 1;
 	}
 	if (v2) {
-		type |= 0x02;
+		type |= STRSTRDICTKEY_V2_SET;
 		l2 = strlen (v2) + 1;
 	}
 
