@@ -406,7 +406,7 @@ nm_vpn_plugin_info_list_find_by_name (GSList *list, const char *name)
 	GSList *iter;
 
 	if (!name)
-		return NULL;
+		g_return_val_if_reached (NULL);
 
 	for (iter = list; iter; iter = iter->next) {
 		if (strcmp (nm_vpn_plugin_info_get_name (iter->data), name) == 0)
@@ -421,7 +421,7 @@ nm_vpn_plugin_info_list_find_by_filename (GSList *list, const char *filename)
 	GSList *iter;
 
 	if (!filename)
-		return NULL;
+		g_return_val_if_reached (NULL);
 
 	for (iter = list; iter; iter = iter->next) {
 		if (g_strcmp0 (nm_vpn_plugin_info_get_filename (iter->data), filename) == 0)
@@ -436,7 +436,7 @@ nm_vpn_plugin_info_list_find_by_service (GSList *list, const char *service)
 	GSList *iter;
 
 	if (!service)
-		return NULL;
+		g_return_val_if_reached (NULL);
 
 	for (iter = list; iter; iter = iter->next) {
 		if (g_strcmp0 (nm_vpn_plugin_info_get_service (iter->data), service) == 0)
