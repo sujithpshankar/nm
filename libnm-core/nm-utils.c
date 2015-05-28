@@ -3354,6 +3354,7 @@ _nm_utils_strstrdictkey_hash (gconstpointer a)
 				h = (h << 5) + h + *p;
 			if (k->type == 0x03) {
 				/* the key contains two strings. Continue... */
+				h = (h << 5) + h + '\0';
 				for (p++; *p != '\0'; p++)
 					h = (h << 5) + h + *p;
 			}
