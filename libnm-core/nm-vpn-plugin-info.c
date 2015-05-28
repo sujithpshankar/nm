@@ -165,7 +165,7 @@ nm_vpn_plugin_info_check_file_full (const char *filename,
 		return FALSE;
 	}
 
-	if (check_absolute && filename[0] != '/') {
+	if (check_absolute && !g_path_is_absolute (filename)) {
 		g_set_error (error,
 		             NM_VPN_PLUGIN_ERROR,
 		             NM_VPN_PLUGIN_ERROR_FAILED,
