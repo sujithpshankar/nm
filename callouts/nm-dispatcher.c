@@ -124,6 +124,7 @@ struct Request {
 
 	GPtrArray *scripts;  /* list of ScriptInfo */
 	guint idx;
+	gboolean queued;
 
 	guint script_watch_id;
 	guint script_timeout_id;
@@ -236,7 +237,8 @@ next_script (gpointer user_data)
 	}
 	request_free (request);
 
-	next_request (h);
+	if (request->queued)
+		next_request (h);
 	return FALSE;
 }
 
@@ -525,7 +527,12 @@ handle_action (NMDBusDispatcher *dbus_dispatcher,
 	}
 	g_slist_free (sorted_scripts);
 
-	if (h->current_request)
+	request->queued =    strcmp (str_action, NMD_ACTION_PRE_UP) != 0
+	                  && strcmp (str_action, NMD_ACTION_PRE_DOWN) != 0;
+
+	if (!request->queued)
+		dispatch_one_script (request);
+	else if (h->current_request)
 		g_queue_push_tail (h->pending_requests, request);
 	else
 		start_request (request);

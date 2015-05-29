@@ -264,13 +264,17 @@
       exported too, like VPN_IP4_ADDRESS_0, VPN_IP4_NUM_ADDRESSES.
     </para>
     <para>
-      Dispatcher scripts are run one at a time, but asynchronously from the main
-      NetworkManager process, and will be killed if they run for too long. If your script
-      might take arbitrarily long to complete, you should spawn a child process and have the
-      parent return immediately. Also beware that once a script is queued, it will always be
-      run, even if a later event renders it obsolete. (Eg, if an interface goes up, and then
-      back down again quickly, it is possible that one or more "up" scripts will be run
-      after the interface has gone down.)
+      Dispatcher scripts are run one at a time (with the exceptions below), but
+      asynchronously from the main NetworkManager process, and will be killed if they run
+      for too long. If your script might take arbitrarily long to complete, you should spawn
+      a child process and have the parent return immediately. Also beware that once a script
+      is queued, it will always be run, even if a later event renders it obsolete. (Eg, if
+      an interface goes up, and then back down again quickly, it is possible that one or
+      more "up" scripts will be run after the interface has gone down.)
+
+      Scripts acting on pre-up and pre-down events are not serialized and are executed
+      immediately to minimize device (de)activation times. Therefore special care must be
+      taken to avoid race conditions between multiple script instances.
     </para>
   </refsect1>
 
