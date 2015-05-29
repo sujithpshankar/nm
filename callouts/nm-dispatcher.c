@@ -57,6 +57,7 @@ typedef struct {
 
 	Request *current_request;
 	GQueue *pending_requests;
+	guint num_pending_unqueued;
 } Handler;
 
 typedef struct {
@@ -167,11 +168,13 @@ quit_timeout_cancel (void)
 }
 
 static void
-quit_timeout_reschedule (void)
+quit_timeout_reschedule (Handler *h)
 {
-	quit_timeout_cancel ();
-	if (!persist)
-		quit_id = g_timeout_add_seconds (10, quit_timeout_cb, NULL);
+	if (!h->current_request && !h->num_pending_unqueued) {
+		quit_timeout_cancel ();
+		if (!persist)
+			quit_id = g_timeout_add_seconds (10, quit_timeout_cb, NULL);
+		}
 }
 
 static void
@@ -197,7 +200,6 @@ next_request (Handler *h)
 	}
 
 	h->current_request = NULL;
-	quit_timeout_reschedule ();
 }
 
 static gboolean
@@ -239,6 +241,13 @@ next_script (gpointer user_data)
 
 	if (request->queued)
 		next_request (h);
+	else {
+		g_assert_cmpuint (h->num_pending_unqueued, >, 0);
+		h->num_pending_unqueued--;
+	}
+
+	quit_timeout_reschedule (h);
+
 	return FALSE;
 }
 
@@ -530,9 +539,10 @@ handle_action (NMDBusDispatcher *dbus_dispatcher,
 	request->queued =    strcmp (str_action, NMD_ACTION_PRE_UP) != 0
 	                  && strcmp (str_action, NMD_ACTION_PRE_DOWN) != 0;
 
-	if (!request->queued)
+	if (!request->queued) {
+		h->num_pending_unqueued++;
 		dispatch_one_script (request);
-	else if (h->current_request)
+	} else if (h->current_request)
 		g_queue_push_tail (h->pending_requests, request);
 	else
 		start_request (request);
