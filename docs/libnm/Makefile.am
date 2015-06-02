@@ -53,7 +53,8 @@ IGNORE_HFILES= \
 	nm-setting-private.h \
 	nm-types.h \
 	nm-utils-private.h \
-	nm-vpn-plugin-old.h
+	nm-vpn-plugin-old.h \
+	nm-vpn-service-plugin.h
 
 # Images to copy into HTML directory.
 HTML_IMAGES = libnm.png
