@@ -2000,6 +2000,147 @@ nm_setting_property_is_boolean (NMSetting *setting, const char *property_name)
 	return FALSE;
 }
 
+/** _nm_setting_validate_string_property:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ * @value: string to validate
+ * @err_msg: if not %NULL, the error message to set to @error
+ * @error: location to store error, or %NULL
+ *
+ * Validates whether @value string is valid for @setting.@property.
+ *
+ * Returns: %TRUE if @value is valid, %FALSE if not.
+ **/
+gboolean
+_nm_setting_validate_string_property (NMSetting *setting,
+                                      const char *property_name,
+                                      const char *value,
+                                      const char *err_msg,
+                                      GError **error)
+{
+	const char **values;
+	gboolean ret = FALSE;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
+	g_return_val_if_fail (property_name, FALSE);
+
+	if (!value)
+		return TRUE;
+
+	values = nm_setting_property_get_valid_values (setting, property_name);
+	if (values)
+		ret = _nm_utils_string_in_list (value, values);
+
+	if (!ret) {
+		g_set_error (error,
+		             NM_CONNECTION_ERROR,
+		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
+		             "'%s' %s",
+		             value,
+		             err_msg ? err_msg : _("is not a valid value for the property"));
+		g_prefix_error (error, "%s.%s: ", nm_setting_get_name (setting), property_name);
+	}
+	return ret;
+}
+
+/** _nm_setting_validate_slist_property:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ * @list: GSlist with strings to validate
+ * @error: location to store error, or %NULL
+ *
+ * Validates whether values in @list are valid for @setting.@property.
+ *
+ * Returns: %TRUE if @value is valid, %FALSE if not.
+ **/
+gboolean
+_nm_setting_validate_slist_property (NMSetting *setting,
+                                     const char *property_name,
+                                     GSList *list,
+                                     GError **error)
+{
+	const char **values;
+	gboolean ret = FALSE;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
+	g_return_val_if_fail (property_name, FALSE);
+
+	if (!list)
+		return TRUE;
+
+	values = nm_setting_property_get_valid_values (setting, property_name);
+	if (values)
+		ret = _nm_utils_string_slist_validate (list, values);
+
+	if (!ret) {
+		g_set_error_literal (error,
+		                     NM_CONNECTION_ERROR,
+		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
+		                     _("property is invalid"));
+		g_prefix_error (error, "%s.%s: ", nm_setting_get_name (setting), property_name);
+	}
+	return ret;
+}
+
+/**
+ * _nm_setting_property_set_valid_values:
+ * @pspec: a GParamSpec specifying the property
+ * @valid_values: NULL-terminated string array of valid values for the property
+ *
+ * Attaches @valid_values to the property described by @pspec.
+ */
+void
+_nm_setting_property_set_valid_values (GParamSpec *pspec,
+                                       const char **valid_values)
+{
+	g_return_if_fail (G_IS_PARAM_SPEC (pspec));
+
+	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark, valid_values);
+}
+
+/**
+ * _nm_setting_property_set_is_filename:
+ * @pspec: a GParamSpec specifying the property
+ *
+ * Marks the property described by @pspec as a property holding file names.
+ */
+void
+_nm_setting_property_set_is_filename (GParamSpec *pspec)
+{
+	g_return_if_fail (G_IS_PARAM_SPEC (pspec));
+
+	g_param_spec_set_qdata (pspec, _property_metadata_filename_quark, GUINT_TO_POINTER (TRUE));
+}
+
+/**
+ * _nm_setting_property_is_set_multi_value:
+ * @pspec: a GParamSpec specifying the property
+ *
+ * Marks the property described by @pspec as multi-value property, i.e.
+ * usually a string array.
+ */
+void
+_nm_setting_property_set_is_multi_value (GParamSpec *pspec)
+{
+	g_return_if_fail (G_IS_PARAM_SPEC (pspec));
+
+	g_param_spec_set_qdata (pspec, _property_metadata_multi_quark, GUINT_TO_POINTER (TRUE));
+}
+
+/**
+ * _nm_setting_property_set_is_hash:
+ * @pspec: a GParamSpec specifying the property
+ *
+ * Marks the property described by @pspec as a property of hash of options.
+ */
+void
+_nm_setting_property_set_is_hash (GParamSpec *pspec)
+{
+	g_return_if_fail (G_IS_PARAM_SPEC (pspec));
+
+	g_param_spec_set_qdata (pspec, _property_metadata_hash_quark, GUINT_TO_POINTER (TRUE));
+}
+
 /*****************************************************************************/
 
 static void

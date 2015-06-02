@@ -462,8 +462,7 @@ nm_setting_ip4_config_class_init (NMSettingIP4ConfigClass *ip4_class)
 	 * ---end---
 	 */
 	pspec = g_object_class_find_property (object_class, NM_SETTING_IP_CONFIG_METHOD);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_method);
+	_nm_setting_property_set_valid_values (pspec, valid_values_method);
 
 	/* ---keyfile---
 	 * property: dns

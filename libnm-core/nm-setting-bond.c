@@ -757,10 +757,8 @@ nm_setting_bond_class_init (NMSettingBondClass *setting_class)
 	                            NM_SETTING_PARAM_INFERRABLE |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_OPTIONS, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        get_valid_options ());
-	g_param_spec_set_qdata (pspec, _property_metadata_hash_quark,
-	                        GUINT_TO_POINTER (TRUE));
+	_nm_setting_property_set_valid_values (pspec, get_valid_options ());
+	_nm_setting_property_set_is_hash (pspec);
 	_nm_setting_class_transform_property (parent_class, NM_SETTING_BOND_OPTIONS,
 	                                      G_VARIANT_TYPE ("a{ss}"),
 	                                      _nm_utils_strdict_to_dbus,

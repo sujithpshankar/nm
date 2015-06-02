@@ -211,27 +211,21 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		return FALSE;
 	}
 
-	if (   !priv->protocol
-	    || !_nm_utils_string_in_list (priv->protocol, valid_values_protocol)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid value for the property"),
-		             priv->protocol ? priv->protocol : "(null)");
+	if (!priv->protocol) {
+		g_set_error_literal (error,
+		                     NM_CONNECTION_ERROR,
+		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
+			             _("property is missing"));
 		g_prefix_error (error, "%s.%s: ", NM_SETTING_ADSL_SETTING_NAME, NM_SETTING_ADSL_PROTOCOL);
 		return FALSE;
 	}
-
-	if (   priv->encapsulation
-	    && !_nm_utils_string_in_list (priv->protocol, valid_values_encapsulation)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid value for the property"),
-		             priv->encapsulation);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_ADSL_SETTING_NAME, NM_SETTING_ADSL_ENCAPSULATION);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_ADSL_PROTOCOL,
+	                                           priv->protocol, NULL, error))
 		return FALSE;
-	}
+
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_ADSL_ENCAPSULATION,
+	                                           priv->encapsulation, NULL, error))
+		return FALSE;
 
 	return TRUE;
 }
@@ -409,8 +403,7 @@ nm_setting_adsl_class_init (NMSettingAdslClass *setting_class)
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_PROTOCOL, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_protocol);
+	_nm_setting_property_set_valid_values (pspec, valid_values_protocol);
 
 	/**
 	 * NMSettingAdsl:encapsulation:
@@ -422,8 +415,7 @@ nm_setting_adsl_class_init (NMSettingAdslClass *setting_class)
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_ENCAPSULATION, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_encapsulation);
+	_nm_setting_property_set_valid_values (pspec, valid_values_encapsulation);
 
 	/**
 	 * NMSettingAdsl:vpi:

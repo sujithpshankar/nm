@@ -159,6 +159,23 @@ gboolean _nm_setting_use_legacy_property (NMSetting *setting,
                                           const char *legacy_property,
                                           const char *new_property);
 
+gboolean _nm_setting_validate_string_property (NMSetting *setting,
+                                               const char *property_name,
+                                               const char *value,
+                                               const char *err_msg,
+                                               GError **error);
+
+gboolean _nm_setting_validate_slist_property (NMSetting *setting,
+                                              const char *property_name,
+                                              GSList *list,
+                                              GError **error);
+
+void _nm_setting_property_set_valid_values (GParamSpec *pspec,
+                                            const char **valid_values);
+void _nm_setting_property_set_is_filename (GParamSpec *pspec);
+void _nm_setting_property_set_is_multi_value (GParamSpec *pspec);
+void _nm_setting_property_set_is_hash (GParamSpec *pspec);
+
 GPtrArray  *_nm_setting_need_secrets (NMSetting *setting);
 
 #endif  /* NM_SETTING_PRIVATE_H */

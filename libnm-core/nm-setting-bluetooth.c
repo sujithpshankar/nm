@@ -145,15 +145,9 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		                     _("property is missing"));
 		g_prefix_error (error, "%s.%s: ", NM_SETTING_BLUETOOTH_SETTING_NAME, NM_SETTING_BLUETOOTH_TYPE);
 		return FALSE;
-	} else if (!_nm_utils_string_in_list (priv->type, valid_values_bluetooth_type)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid value for the property"),
-		             priv->type);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_BLUETOOTH_SETTING_NAME, NM_SETTING_BLUETOOTH_TYPE);
+	} else if (!_nm_setting_validate_string_property (setting, NM_SETTING_BLUETOOTH_TYPE,
+	                                                  priv->type, NULL, error))
 		return FALSE;
-	}
 
 	/* Make sure the corresponding 'type' setting is present */
 	if (   connection
@@ -287,6 +281,5 @@ nm_setting_bluetooth_class_init (NMSettingBluetoothClass *setting_class)
 	                             NM_SETTING_PARAM_INFERRABLE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_TYPE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_bluetooth_type);
+	_nm_setting_property_set_valid_values (pspec, valid_values_bluetooth_type);
 }

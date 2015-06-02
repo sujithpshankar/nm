@@ -730,25 +730,13 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		return FALSE;
 	}
 
-	if (priv->mode && !_nm_utils_string_in_list (priv->mode, valid_values_mode)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid Wi-Fi mode"),
-		             priv->mode);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SETTING_NAME, NM_SETTING_WIRELESS_MODE);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRELESS_MODE, priv->mode,
+	                                           _("is not a valid Wi-Fi mode"), error))
 		return FALSE;
-	}
 
-	if (priv->band && !_nm_utils_string_in_list (priv->band, valid_values_band)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid band"),
-		             priv->band);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SETTING_NAME, NM_SETTING_WIRELESS_BAND);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRELESS_BAND, priv->band,
+	                                           _("is not a valid Wi-Fi band"), error))
 		return FALSE;
-	}
 
 	if (priv->channel && !priv->band) {
 		g_set_error (error,
@@ -1064,8 +1052,7 @@ nm_setting_wireless_class_init (NMSettingWirelessClass *setting_class)
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_MODE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_mode);
+	_nm_setting_property_set_valid_values (pspec, valid_values_mode);
 
 	/**
 	 * NMSettingWireless:band:
@@ -1091,8 +1078,7 @@ nm_setting_wireless_class_init (NMSettingWirelessClass *setting_class)
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_BAND, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_band);
+	_nm_setting_property_set_valid_values (pspec, valid_values_band);
 
 	/**
 	 * NMSettingWireless:channel:

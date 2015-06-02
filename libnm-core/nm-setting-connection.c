@@ -1529,8 +1529,7 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 	                             NM_SETTING_PARAM_INFERRABLE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_SLAVE_TYPE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_slave_type);
+	_nm_setting_property_set_valid_values (pspec, valid_values_slave_type);
 
 	/**
 	 * NMSettingConnection:secondaries:

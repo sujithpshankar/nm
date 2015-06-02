@@ -865,15 +865,9 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		return FALSE;
 	}
 
-	if (!_nm_utils_string_in_list (priv->key_mgmt, valid_values_key_mgmt)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid value for the property"),
-		             priv->key_mgmt);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SECURITY_SETTING_NAME, NM_SETTING_WIRELESS_SECURITY_KEY_MGMT);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRELESS_SECURITY_KEY_MGMT, priv->key_mgmt,
+	                                           NULL, error))
 		return FALSE;
-	}
 
 	if (priv->auth_alg && !strcmp (priv->auth_alg, "leap")) {
 		/* LEAP must use ieee8021x key management */
@@ -938,23 +932,12 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		return FALSE;
 	}
 
-	if (priv->auth_alg && !_nm_utils_string_in_list (priv->auth_alg, valid_values_auth_alg)) {
-		g_set_error_literal (error,
-		                     NM_CONNECTION_ERROR,
-		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		                     _("property is invalid"));
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SECURITY_SETTING_NAME, NM_SETTING_WIRELESS_SECURITY_AUTH_ALG);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRELESS_SECURITY_AUTH_ALG, priv->auth_alg,
+	                                           NULL, error))
 		return FALSE;
-	}
 
-	if (priv->proto && !_nm_utils_string_slist_validate (priv->proto, valid_values_proto)) {
-		g_set_error_literal (error,
-		                     NM_CONNECTION_ERROR,
-		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		                     _("property is invalid"));
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SECURITY_SETTING_NAME, NM_SETTING_WIRELESS_SECURITY_PROTO);
+	if (!_nm_setting_validate_slist_property (setting, NM_SETTING_WIRELESS_SECURITY_PROTO, priv->proto, error))
 		return FALSE;
-	}
 
 	if (priv->pairwise) {
 		const char *wpa_none[] = { "wpa-none", NULL };
@@ -983,24 +966,12 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 				g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SECURITY_SETTING_NAME, NM_SETTING_WIRELESS_SECURITY_PAIRWISE);
 				return FALSE;
 			}
-		} else if (!_nm_utils_string_slist_validate (priv->pairwise, valid_values_pairwise)) {
-			g_set_error_literal (error,
-			                     NM_CONNECTION_ERROR,
-			                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
-			                     _("property is invalid"));
-			g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SECURITY_SETTING_NAME, NM_SETTING_WIRELESS_SECURITY_PAIRWISE);
+		} else if (!_nm_setting_validate_slist_property (setting, NM_SETTING_WIRELESS_SECURITY_PAIRWISE, priv->pairwise, error))
 			return FALSE;
-		}
 	}
 
-	if (priv->group && !_nm_utils_string_slist_validate (priv->group, valid_values_group)) {
-		g_set_error_literal (error,
-		                     NM_CONNECTION_ERROR,
-		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		                     _("property is invalid"));
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRELESS_SECURITY_SETTING_NAME, NM_SETTING_WIRELESS_SECURITY_GROUP);
+	if (!_nm_setting_validate_slist_property (setting, NM_SETTING_WIRELESS_SECURITY_GROUP, priv->group, error))
 		return FALSE;
-	}
 
 	/* Shared Key auth can only be used with WEP */
 	if (priv->auth_alg && !strcmp (priv->auth_alg, "shared")) {
@@ -1295,8 +1266,7 @@ nm_setting_wireless_security_class_init (NMSettingWirelessSecurityClass *setting
 	                             NM_SETTING_PARAM_REQUIRED |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_KEY_MGMT, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_key_mgmt);
+	_nm_setting_property_set_valid_values (pspec, valid_values_key_mgmt);
 
 	/**
 	 * NMSettingWirelessSecurity:wep-tx-keyidx:
@@ -1343,8 +1313,7 @@ nm_setting_wireless_security_class_init (NMSettingWirelessSecurityClass *setting
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_AUTH_ALG, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_auth_alg);
+	_nm_setting_property_set_valid_values (pspec, valid_values_auth_alg);
 
 	/**
 	 * NMSettingWirelessSecurity:proto:
@@ -1366,10 +1335,8 @@ nm_setting_wireless_security_class_init (NMSettingWirelessSecurityClass *setting
 	                            G_PARAM_READWRITE |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_PROTO, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_proto);
-	g_param_spec_set_qdata (pspec, _property_metadata_multi_quark,
-	                        GUINT_TO_POINTER (TRUE));
+	_nm_setting_property_set_valid_values (pspec, valid_values_proto);
+	_nm_setting_property_set_is_multi_value (pspec);
 
 	/**
 	 * NMSettingWirelessSecurity:pairwise:
@@ -1392,10 +1359,8 @@ nm_setting_wireless_security_class_init (NMSettingWirelessSecurityClass *setting
 	                            G_PARAM_READWRITE |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_PAIRWISE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_pairwise);
-	g_param_spec_set_qdata (pspec, _property_metadata_multi_quark,
-	                        GUINT_TO_POINTER (TRUE));
+	_nm_setting_property_set_valid_values (pspec, valid_values_pairwise);
+	_nm_setting_property_set_is_multi_value (pspec);
 
 	/**
 	 * NMSettingWirelessSecurity:group:
@@ -1418,10 +1383,8 @@ nm_setting_wireless_security_class_init (NMSettingWirelessSecurityClass *setting
 	                            G_PARAM_READWRITE |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_GROUP, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_group);
-	g_param_spec_set_qdata (pspec, _property_metadata_multi_quark,
-	                        GUINT_TO_POINTER (TRUE));
+	_nm_setting_property_set_valid_values (pspec, valid_values_group);
+	_nm_setting_property_set_is_multi_value (pspec);
 
 	/**
 	 * NMSettingWirelessSecurity:leap-username:

@@ -565,25 +565,12 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 	const char *key, *value;
 	int i;
 
-	if (priv->port && !_nm_utils_string_in_list (priv->port, valid_values_port)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid Ethernet port value"),
-		             priv->port);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRED_SETTING_NAME, NM_SETTING_WIRED_PORT);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRED_PORT, priv->port,
+	                                           _("is not a valid Ethernet port value"), error))
 		return FALSE;
-	}
-
-	if (priv->duplex && !_nm_utils_string_in_list (priv->duplex, valid_values_duplex)) {
-		g_set_error (error,
-		             NM_CONNECTION_ERROR,
-		             NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		             _("'%s' is not a valid duplex value"),
-		             priv->duplex);
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRED_SETTING_NAME, NM_SETTING_WIRED_DUPLEX);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRED_DUPLEX, priv->duplex,
+	                                           _("is not a valid Ethernet duplex value"), error))
 		return FALSE;
-	}
 
 	if (priv->device_mac_address && !nm_utils_hwaddr_valid (priv->device_mac_address, ETH_ALEN)) {
 		g_set_error_literal (error,
@@ -621,14 +608,9 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		}
 	}
 
-	if (priv->s390_nettype && !_nm_utils_string_in_list (priv->s390_nettype, valid_values_s390_nettype)) {
-		g_set_error_literal (error,
-		                     NM_CONNECTION_ERROR,
-		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		                     _("property is invalid"));
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_WIRED_SETTING_NAME, NM_SETTING_WIRED_S390_NETTYPE);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_WIRED_S390_NETTYPE,
+	                                           priv->s390_nettype, NULL, error))
 		return FALSE;
-	}
 
 	g_hash_table_iter_init (&iter, priv->s390_options);
 	while (g_hash_table_iter_next (&iter, (gpointer) &key, (gpointer) &value)) {
@@ -844,8 +826,7 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_class)
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_PORT, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_port);
+	_nm_setting_property_set_valid_values (pspec, valid_values_port);
 
 	/**
 	 * NMSettingWired:speed:
@@ -884,8 +865,7 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_class)
 	                             G_PARAM_READWRITE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_DUPLEX, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_duplex);
+	_nm_setting_property_set_valid_values (pspec, valid_values_duplex);
 
 	/**
 	 * NMSettingWired:auto-negotiate:
@@ -1070,8 +1050,7 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_class)
 	                      NM_SETTING_PARAM_INFERRABLE |
 	                      G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_S390_NETTYPE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_s390_nettype);
+	_nm_setting_property_set_valid_values (pspec, valid_values_s390_nettype);
 
 	/**
 	 * NMSettingWired:s390-options:
@@ -1096,10 +1075,8 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_class)
 	                            NM_SETTING_PARAM_INFERRABLE |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_S390_OPTIONS, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_s390_options);
-	g_param_spec_set_qdata (pspec, _property_metadata_hash_quark,
-	                        GUINT_TO_POINTER (TRUE));
+	_nm_setting_property_set_valid_values (pspec, valid_values_s390_options);
+	_nm_setting_property_set_is_hash (pspec);
 	_nm_setting_class_transform_property (parent_class, NM_SETTING_WIRED_S390_OPTIONS,
 	                                      G_VARIANT_TYPE ("a{ss}"),
 	                                      _nm_utils_strdict_to_dbus,

@@ -472,8 +472,7 @@ nm_setting_infiniband_class_init (NMSettingInfinibandClass *setting_class)
 	                             NM_SETTING_PARAM_INFERRABLE |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_TRANSPORT_MODE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_transport_type);
+	_nm_setting_property_set_valid_values (pspec, valid_values_transport_type);
 
 	/**
 	 * NMSettingInfiniband:p-key:

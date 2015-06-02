@@ -645,16 +645,9 @@ verify (NMSetting *setting, NMConnection *connection, GError **error)
 		g_prefix_error (error, "%s.%s: ", NM_SETTING_DCB_SETTING_NAME, NM_SETTING_DCB_APP_FCOE_MODE);
 		return FALSE;
 	}
-
-	if (   !priv->app_fcoe_mode
-	    || !_nm_utils_string_in_list (priv->app_fcoe_mode, valid_values_app_fcoe_mode)) {
-		g_set_error_literal (error,
-		                     NM_CONNECTION_ERROR,
-		                     NM_CONNECTION_ERROR_INVALID_PROPERTY,
-		                     _("property invalid"));
-		g_prefix_error (error, "%s.%s: ", NM_SETTING_DCB_SETTING_NAME, NM_SETTING_DCB_APP_FCOE_MODE);
+	if (!_nm_setting_validate_string_property (setting, NM_SETTING_DCB_APP_FCOE_MODE,
+	                                           priv->app_fcoe_mode, NULL, error))
 		return FALSE;
-	}
 
 	if (!check_dcb_flags (priv->app_iscsi_flags, NM_SETTING_DCB_APP_ISCSI_FLAGS, error))
 		return FALSE;
@@ -994,8 +987,7 @@ nm_setting_dcb_class_init (NMSettingDcbClass *setting_class)
 	                             G_PARAM_CONSTRUCT |
 	                             G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_APP_FCOE_MODE, pspec);
-	g_param_spec_set_qdata (pspec, _property_metadata_valid_values_quark,
-	                        valid_values_app_fcoe_mode);
+	_nm_setting_property_set_valid_values (pspec, valid_values_app_fcoe_mode);
 
 	/**
 	 * NMSettingDcb:app-iscsi-flags:
