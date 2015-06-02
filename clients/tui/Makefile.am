@@ -42,9 +42,6 @@ nmtui_SOURCES = \
 	nmtui-hostname.c \
 	nmtui-hostname.h \
 	\
-	vpn-helpers.c \
-	vpn-helpers.h \
-	\
 	nm-editor-bindings.c \
 	nm-editor-bindings.h \
 	nm-editor-utils.c \
