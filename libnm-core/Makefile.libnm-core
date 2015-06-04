@@ -12,6 +12,7 @@ libnm_core_headers =				\
 	$(core)/nm-core-types.h			\
 	$(core)/nm-dbus-interface.h		\
 	$(core)/nm-errors.h			\
+	$(core)/nm-meta.h			\
 	$(core)/nm-setting-8021x.h		\
 	$(core)/nm-setting-adsl.h		\
 	$(core)/nm-setting-bluetooth.h		\
@@ -63,6 +64,7 @@ libnm_core_sources =				\
 	$(core)/nm-keyfile-reader.c         \
 	$(core)/nm-keyfile-utils.c          \
 	$(core)/nm-keyfile-writer.c         \
+	$(core)/nm-meta.c			\
 	$(core)/nm-property-compare.c		\
 	$(core)/nm-setting-8021x.c		\
 	$(core)/nm-setting-adsl.c		\

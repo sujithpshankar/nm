@@ -27,6 +27,7 @@
 #include <nm-utils.h>
 #include "gsystem-local-alloc.h"
 
+#include "nm-meta.h"
 #include "nm-setting-private.h"
 #include "nm-utils.h"
 #include "nm-utils-private.h"
@@ -4359,7 +4360,58 @@ test_nm_utils_dns_option_find_idx (void)
 }
 
 /******************************************************************************/
+static void
+test_meta_flag_from_str_do (NMMetaFlag *desc, const char *str,
+                            gboolean exp_result, int exp_flags, const char *exp_err_token)
+{
+	int flags = 1;
+	char *err_token = NULL;
+	gboolean result;
 
+	result = nm_meta_flag_from_str (desc, str, &flags, &err_token);
+
+	g_assert (result == exp_result);
+	g_assert_cmpint (flags, ==, exp_flags);
+	g_assert_cmpstr (err_token, ==, exp_err_token);
+
+	g_free (err_token);
+}
+
+static void
+test_meta_flag_to_str_do (NMMetaFlag *desc, int flags, const char *exp_str)
+{
+	char *str;
+
+	str = nm_meta_flag_to_str (desc, flags);
+	g_assert_cmpstr (str, ==, exp_str);
+	g_free (str);
+}
+
+static NMMetaFlag test_meta_flags[] = {
+	{ "zero",   1 },
+	{ "one",    2 },
+	{ "two",    4 },
+	{ "three",  8 },
+	{ }
+};
+
+static void test_meta_flag (void)
+{
+	test_meta_flag_to_str_do (test_meta_flags, 0, "");
+	test_meta_flag_to_str_do (test_meta_flags, 6, "one,two");
+	test_meta_flag_to_str_do (test_meta_flags, 16, "");
+
+	test_meta_flag_from_str_do (test_meta_flags, "", TRUE, 0, NULL);
+	test_meta_flag_from_str_do (test_meta_flags, " ", TRUE, 0, NULL);
+	test_meta_flag_from_str_do (test_meta_flags, "zero,one,three", TRUE, 11, NULL);
+	test_meta_flag_from_str_do (test_meta_flags, "one,one,one", TRUE, 2, NULL);
+	test_meta_flag_from_str_do (test_meta_flags, "one two", TRUE, 6, NULL);
+
+	test_meta_flag_from_str_do (test_meta_flags, "four", FALSE, 0, "four");
+	test_meta_flag_from_str_do (test_meta_flags, "one,two,eight,nine", FALSE, 0, "eight");
+}
+
+/******************************************************************************/
 NMTST_DEFINE ();
 
 int main (int argc, char **argv)
@@ -4464,6 +4516,8 @@ int main (int argc, char **argv)
 
 	g_test_add_func ("/core/general/_nm_utils_dns_option_validate", test_nm_utils_dns_option_validate);
 	g_test_add_func ("/core/general/_nm_utils_dns_option_find_idx", test_nm_utils_dns_option_find_idx);
+
+	g_test_add_func ("/core/general/test_meta_flag", test_meta_flag);
 
 	return g_test_run ();
 }

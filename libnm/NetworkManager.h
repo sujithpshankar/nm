@@ -46,6 +46,7 @@
 #include <nm-dhcp-config.h>
 #include <nm-enum-types.h>
 #include <nm-ip-config.h>
+#include <nm-meta.h>
 #include <nm-object.h>
 #include <nm-remote-connection.h>
 #include <nm-setting-8021x.h>

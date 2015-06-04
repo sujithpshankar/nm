@@ -185,4 +185,9 @@ int         _nm_utils_dns_option_find_idx (GPtrArray *array, const char *option)
 
 /***********************************************************/
 
+struct  _NMMetaFlag {
+	const char *name;
+	int value;
+};
+
 #endif
