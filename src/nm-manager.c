@@ -675,7 +675,7 @@ nm_manager_update_metered (NMManager *manager)
 	if (value != priv->metered) {
 		priv->metered = value;
 		nm_log_dbg (LOGD_CORE, "New manager metered value: %d",
-		            (int)priv->metered);
+		            (int) priv->metered);
 		g_object_notify (G_OBJECT (manager), NM_MANAGER_METERED);
 	}
 }
