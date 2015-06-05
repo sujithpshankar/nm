@@ -31,6 +31,9 @@
 typedef struct _NMMetaFlag NMMetaFlag;
 
 NM_AVAILABLE_IN_1_2
+extern NMMetaFlag *nm_meta_flags_wake_on_lan;
+
+NM_AVAILABLE_IN_1_2
 char *nm_meta_flag_to_str (const NMMetaFlag *flags, int value);
 
 NM_AVAILABLE_IN_1_2

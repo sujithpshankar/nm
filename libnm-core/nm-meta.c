@@ -27,7 +27,20 @@
 
 #include "nm-meta.h"
 #include "nm-core-internal.h"
+#include "nm-setting-wired.h"
 #include "nm-macros-internal.h"
+
+static NMMetaFlag _nm_meta_flags_wake_on_lan[] = {
+	{ "phy",            NM_SETTING_WIRED_WAKE_ON_LAN_PHY },
+	{ "unicast",        NM_SETTING_WIRED_WAKE_ON_LAN_UNICAST },
+	{ "multicast",      NM_SETTING_WIRED_WAKE_ON_LAN_MULTICAST },
+	{ "broadcast",      NM_SETTING_WIRED_WAKE_ON_LAN_BROADCAST },
+	{ "arp",            NM_SETTING_WIRED_WAKE_ON_LAN_ARP },
+	{ "magic",          NM_SETTING_WIRED_WAKE_ON_LAN_MAGIC },
+	{ }
+};
+
+NMMetaFlag *nm_meta_flags_wake_on_lan = _nm_meta_flags_wake_on_lan;
 
 /**
  * nm_meta_flag_to_str

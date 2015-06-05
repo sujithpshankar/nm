@@ -852,6 +852,7 @@ global:
 	nm_device_get_nm_plugin_missing;
 	nm_meta_flag_from_str;
 	nm_meta_flag_to_str;
+	nm_meta_flags_wake_on_lan;
 	nm_metered_get_type;
 	nm_setting_802_1x_check_cert_scheme;
 	nm_setting_bridge_get_multicast_snooping;
