@@ -2249,7 +2249,8 @@ ensure_master_active_connection (NMManager *self,
 		/* If the device is disconnected, find a compatible connection and
 		 * activate it on the device.
 		 */
-		if (master_state == NM_DEVICE_STATE_DISCONNECTED) {
+		if (   master_state == NM_DEVICE_STATE_DISCONNECTED
+		    && !nm_device_has_pending_action (master_device)) {
 			GSList *connections;
 
 			g_assert (master_connection == NULL);
