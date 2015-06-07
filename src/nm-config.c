@@ -410,7 +410,7 @@ nm_config_create_keyfile ()
 	GKeyFile *keyfile;
 
 	keyfile = g_key_file_new ();
-	g_key_file_set_list_separator (keyfile, ',');
+	g_key_file_set_list_separator (keyfile, NM_CONFIG_KEYFILE_LIST_SEPARATOR);
 	return keyfile;
 }
 
@@ -452,31 +452,61 @@ read_config (GKeyFile *keyfile, const char *dirname, const char *path, GError **
 		if (!keys)
 			continue;
 		for (k = 0; keys[k]; k++) {
-			int len = strlen (keys[k]);
-			char *v;
+			const char *key;
+			char *new_value;
+			char last_char;
+			gsize key_len;
 
-			if (keys[k][len - 1] == '+') {
-				char *base_key = g_strndup (keys[k], len - 1);
-				char *old_val = g_key_file_get_value (keyfile, groups[g], base_key, NULL);
-				char *new_val = g_key_file_get_value (kf, groups[g], keys[k], NULL);
+			key = keys[k];
+			g_assert (key && *key);
+			key_len = strlen (key);
+			last_char = key[key_len - 1];
+			if (   key_len > 1
+			    && (last_char == '+' || last_char == '-')) {
+				gs_free char *base_key = g_strndup (key, key_len - 1);
+				gs_strfreev  char **old_val = g_key_file_get_string_list (keyfile, groups[g], base_key, NULL, NULL);
+				gs_free char **new_val = g_key_file_get_string_list (kf, groups[g], key, NULL, NULL);
+				gs_unref_ptrarray GPtrArray *new = g_ptr_array_new_with_free_func (g_free);
+				char **iter_val;
 
-				if (old_val && *old_val) {
-					char *combined = g_strconcat (old_val, ",", new_val, NULL);
+				for (iter_val = old_val; iter_val && *iter_val; iter_val++) {
+					if (   last_char != '-'
+					    || _nm_utils_strv_find_first (new_val, -1, *iter_val) < 0)
+						g_ptr_array_add (new, g_strdup (*iter_val));
+				}
+				for (iter_val = new_val; iter_val && *iter_val; iter_val++) {
+					/* don't add duplicates. That means an "option=a,b"; "option+=a,c" results in "option=a,b,c" */
+					if (   last_char == '+'
+					    && _nm_utils_strv_find_first (old_val, -1, *iter_val) < 0)
+						g_ptr_array_add (new, *iter_val);
+					else
+						g_free (*iter_val);
+				}
 
-					g_key_file_set_value (keyfile, groups[g], base_key, combined);
-					g_free (combined);
+				if (new->len > 0) {
+					g_ptr_array_add (new, NULL);
+					g_key_file_set_string_list (keyfile, groups[g], base_key, (const char *const*) new->pdata, new->len - 1);
+
+					/* for some reason g_key_file_set_string_list() appends a trailing separator. Get rid of it again. */
+					new_value = g_key_file_get_value (keyfile, groups[g], base_key, NULL);
+					if (new_value) {
+						gsize l;
+
+						l = strlen (new_value);
+						if (l > 0 && new_value[l - 1] == NM_CONFIG_KEYFILE_LIST_SEPARATOR) {
+							new_value[l - 1] = '\0';
+							g_key_file_set_value (keyfile, groups[g], base_key, new_value);
+						}
+						g_free (new_value);
+					}
 				} else
-					g_key_file_set_value (keyfile, groups[g], base_key, new_val);
-
-				g_free (base_key);
-				g_free (old_val);
-				g_free (new_val);
+					g_key_file_remove_key (keyfile, groups[g], base_key, NULL);
 				continue;
 			}
 
-			g_key_file_set_value (keyfile, groups[g], keys[k],
-			                      v = g_key_file_get_value (kf, groups[g], keys[k], NULL));
-			g_free (v);
+			new_value = g_key_file_get_value (kf, groups[g], key, NULL);
+			g_key_file_set_value (keyfile, groups[g], key, new_value);
+			g_free (new_value);
 		}
 		g_strfreev (keys);
 	}
