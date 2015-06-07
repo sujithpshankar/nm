@@ -48,6 +48,11 @@ G_BEGIN_DECLS
 
 #define NM_CONFIG_KEYFILE_LIST_SEPARATOR ','
 
+#define NM_CONFIG_KEYFILE_GROUPPREFIX_INTERN                ".intern."
+
+#define NM_CONFIG_KEYFILE_KEYPREFIX_WAS                     ".was."
+#define NM_CONFIG_KEYFILE_KEYPREFIX_SET                     ".set."
+
 typedef struct NMConfigCmdLineOptions NMConfigCmdLineOptions;
 
 struct _NMConfig {
@@ -81,6 +86,11 @@ const char *nm_config_get_log_level (NMConfig *config);
 const char *nm_config_get_log_domains (NMConfig *config);
 const char *nm_config_get_debug (NMConfig *config);
 gboolean nm_config_get_configure_and_quit (NMConfig *config);
+
+void nm_config_set_values (NMConfig *self,
+                           GKeyFile *keyfile_intern_new,
+                           gboolean allow_write,
+                           gboolean force_rewrite);
 
 /* for main.c only */
 NMConfigCmdLineOptions *nm_config_cmd_line_options_new (void);
