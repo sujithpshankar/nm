@@ -38,7 +38,8 @@ G_BEGIN_DECLS
 
 #define NM_CONFIG_DATA_CONFIG_MAIN_FILE      "config-main-file"
 #define NM_CONFIG_DATA_CONFIG_DESCRIPTION    "config-description"
-#define NM_CONFIG_DATA_KEYFILE               "keyfile"
+#define NM_CONFIG_DATA_KEYFILE_USER          "keyfile-user"
+#define NM_CONFIG_DATA_KEYFILE_INTERN        "keyfile-intern"
 #define NM_CONFIG_DATA_CONNECTIVITY_URI      "connectivity-uri"
 #define NM_CONFIG_DATA_CONNECTIVITY_INTERVAL "connectivity-interval"
 #define NM_CONFIG_DATA_CONNECTIVITY_RESPONSE "connectivity-response"
@@ -49,10 +50,12 @@ typedef enum { /*< flags >*/
 	NM_CONFIG_CHANGE_NONE                      = 0,
 	NM_CONFIG_CHANGE_CONFIG_FILES              = (1L << 0),
 	NM_CONFIG_CHANGE_VALUES                    = (1L << 1),
-	NM_CONFIG_CHANGE_CONNECTIVITY              = (1L << 2),
-	NM_CONFIG_CHANGE_NO_AUTO_DEFAULT           = (1L << 3),
-	NM_CONFIG_CHANGE_DNS_MODE                  = (1L << 4),
-	NM_CONFIG_CHANGE_RC_MANAGER                = (1L << 5),
+	NM_CONFIG_CHANGE_VALUES_USER               = (1L << 2),
+	NM_CONFIG_CHANGE_VALUES_INTERN             = (1L << 3),
+	NM_CONFIG_CHANGE_CONNECTIVITY              = (1L << 4),
+	NM_CONFIG_CHANGE_NO_AUTO_DEFAULT           = (1L << 5),
+	NM_CONFIG_CHANGE_DNS_MODE                  = (1L << 6),
+	NM_CONFIG_CHANGE_RC_MANAGER                = (1L << 7),
 
 	_NM_CONFIG_CHANGE_LAST,
 	NM_CONFIG_CHANGE_ALL                       = ((_NM_CONFIG_CHANGE_LAST - 1) << 1) - 1,
@@ -71,7 +74,9 @@ GType nm_config_data_get_type (void);
 NMConfigData *nm_config_data_new (const char *config_main_file,
                                   const char *config_description,
                                   const char *const*no_auto_default,
-                                  GKeyFile *keyfile);
+                                  GKeyFile *keyfile_user,
+                                  GKeyFile *keyfile_intern);
+NMConfigData *nm_config_data_new_update_keyfile_intern (const NMConfigData *base, GKeyFile *keyfile_intern);
 NMConfigData *nm_config_data_new_update_no_auto_default (const NMConfigData *base, const char *const*no_auto_default);
 
 NMConfigChangeFlags nm_config_data_diff (NMConfigData *old_data, NMConfigData *new_data);
@@ -98,6 +103,13 @@ gboolean nm_config_data_get_assume_ipv6ll_only (const NMConfigData *self, NMDevi
 char *nm_config_data_get_connection_default (const NMConfigData *self,
                                              const char *property,
                                              NMDevice *device);
+
+GKeyFile *nm_config_data_clone_keyfile_intern (const NMConfigData *self);
+
+/* private accessors */
+GKeyFile *_nm_config_data_get_keyfile (const NMConfigData *self);
+GKeyFile *_nm_config_data_get_keyfile_user (const NMConfigData *self);
+GKeyFile *_nm_config_data_get_keyfile_intern (const NMConfigData *self);
 
 G_END_DECLS
 
