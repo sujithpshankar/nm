@@ -424,6 +424,7 @@ AM_CPPFLAGS += \
 	-DNMPLUGINDIR=\"$(pkglibdir)\" \
 	-DNMRUNDIR=\"$(nmrundir)\" \
 	-DNMSTATEDIR=\"$(nmstatedir)\" \
+	-DNMLIBDIR=\"$(nmlibdir)\" \
 	\
 	-DDHCLIENT_PATH=\"$(DHCLIENT_PATH)\" \
 	-DDHCPCD_PATH=\"$(DHCPCD_PATH)\" \
