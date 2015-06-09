@@ -2417,19 +2417,44 @@ find_slaves (NMManager *manager,
 }
 
 static gboolean
+should_connect_slaves (NMConnection *connection, NMDevice *device)
+{
+	NMSettingConnection *s_con;
+	NMSettingConnectionAutoconnectSlaves autoconnect_slaves;
+	gs_free char *value = NULL;
+
+	s_con = nm_connection_get_setting_connection (connection);
+	g_assert (s_con);
+
+	/* Check autoconnect-slaves property */
+	autoconnect_slaves = nm_setting_connection_get_autoconnect_slaves (s_con);
+	if (autoconnect_slaves != NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT)
+		goto out;
+
+	/* Check configuration default for autoconnect-slaves property */
+	value = nm_config_data_get_connection_default (nm_config_get_data (nm_config_get ()),
+	                                               "connection.autoconnect-slaves", device);
+	if (value)
+		autoconnect_slaves = _nm_utils_ascii_str_to_int64 (value, 10, 0, 1, -1);
+
+out:
+	if (autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_NO)
+		return FALSE;
+	if (autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES)
+		return TRUE;
+	return FALSE;
+}
+
+static gboolean
 autoconnect_slaves (NMManager *manager,
                     NMConnection *master_connection,
                     NMDevice *master_device,
                     NMAuthSubject *subject)
 {
-	NMSettingConnection *s_con;
 	GError *local_err = NULL;
 	gboolean ret = FALSE;
 
-	s_con = nm_connection_get_setting_connection (master_connection);
-	g_assert (s_con);
-
-	if (nm_setting_connection_get_autoconnect_slaves (s_con)) {
+	if (should_connect_slaves (master_connection, master_device)) {
 		GSList *slaves, *iter;
 
 		iter = slaves = find_slaves (manager, master_connection, master_device);
