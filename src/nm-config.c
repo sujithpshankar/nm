@@ -1302,6 +1302,8 @@ _set_config_data (NMConfig *self, NMConfigData *new_data)
 
 	nm_log_info (LOGD_CORE, "config: update %s (%s)", nm_config_data_get_config_description (new_data),
 	             (log_str = nm_config_change_flags_to_string (changes)));
+	if (NM_FLAGS_HAS (changes, NM_CONFIG_CHANGE_VALUES))
+		nm_config_data_log (new_data, "CONFIG: ");
 	priv->config_data = new_data;
 	g_signal_emit (self, signals[SIGNAL_CONFIG_CHANGED], 0, new_data, changes, old_data);
 	g_object_unref (old_data);
