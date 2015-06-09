@@ -129,7 +129,7 @@ gint nm_config_keyfile_get_boolean (GKeyFile *keyfile,
                                     const char *section,
                                     const char *key,
                                     gint default_value);
-GSList *nm_config_get_device_match_spec (const GKeyFile *keyfile, const char *group, const char *key);
+GSList *nm_config_get_device_match_spec (const GKeyFile *keyfile, const char *group, const char *key, gboolean *out_has_key);
 
 G_END_DECLS
 
