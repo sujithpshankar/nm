@@ -161,26 +161,14 @@ nm_config_keyfile_get_boolean (GKeyFile *keyfile,
                                const char *key,
                                gint default_value)
 {
-	gint value = default_value;
-	char *str;
+	gs_free char *str = NULL;
 
 	g_return_val_if_fail (keyfile != NULL, default_value);
 	g_return_val_if_fail (section != NULL, default_value);
 	g_return_val_if_fail (key != NULL, default_value);
 
 	str = g_key_file_get_value (keyfile, section, key, NULL);
-	if (!str)
-		return default_value;
-
-	value = nm_config_parse_boolean (str, -1);
-	if (value == -1) {
-		nm_log_warn (LOGD_CORE, "Unrecognized value for %s.%s: '%s'. Assuming '%s'",
-		             section, key, str, default_value ? "true" : "false");
-		value = default_value;
-	}
-
-	g_free (str);
-	return value;
+	return nm_config_parse_boolean (str, default_value);
 }
 
 void
