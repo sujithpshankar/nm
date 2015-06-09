@@ -756,16 +756,19 @@ read_entire_config (const NMConfigCmdLineOptions *cli,
 
 	/* Merge settings from command line. They overwrite everything read from
 	 * config files. */
-	if (cli && cli->plugins)
+	if (cli && cli->plugins) {
+		/* plugins is a string list. Set the value directly, so the user has to do proper escaping
+		 * on the command line. */
 		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "plugins", cli->plugins);
+	}
 	if (cli && cli->configure_and_quit)
-		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "configure-and-quit", "true");
+		g_key_file_set_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "configure-and-quit", TRUE);
 	if (cli && cli->connectivity_uri && cli->connectivity_uri[0])
-		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "uri", cli->connectivity_uri);
+		g_key_file_set_string (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "uri", cli->connectivity_uri);
 	if (cli && cli->connectivity_interval >= 0)
 		g_key_file_set_integer (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "interval", cli->connectivity_interval);
 	if (cli && cli->connectivity_response && cli->connectivity_response[0])
-		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "response", cli->connectivity_response);
+		g_key_file_set_string (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "response", cli->connectivity_response);
 
 	str = g_string_new (o_config_main_file);
 	if (system_confs->len > 0) {
@@ -1093,11 +1096,13 @@ intern_config_write (const char *filename,
 /************************************************************************/
 
 GSList *
-nm_config_get_device_match_spec (const GKeyFile *keyfile, const char *group, const char *key)
+nm_config_get_device_match_spec (const GKeyFile *keyfile, const char *group, const char *key, gboolean *out_has_key)
 {
 	gs_free char *value = NULL;
 
 	value = g_key_file_get_string ((GKeyFile *) keyfile, group, key, NULL);
+	if (out_has_key)
+		*out_has_key = !!value;
 	return nm_match_spec_split (value);
 }
 
@@ -1383,12 +1388,12 @@ init_sync (GInitable *initable, GCancellable *cancellable, GError **error)
 
 	priv->auth_polkit = nm_config_keyfile_get_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "auth-polkit", NM_CONFIG_DEFAULT_AUTH_POLKIT);
 
-	priv->dhcp_client = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "dhcp", NULL);
+	priv->dhcp_client = g_key_file_get_string (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "dhcp", NULL);
 
-	priv->log_level = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_LOGGING, "level", NULL);
-	priv->log_domains = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_LOGGING, "domains", NULL);
+	priv->log_level = g_key_file_get_string (keyfile, NM_CONFIG_KEYFILE_GROUP_LOGGING, "level", NULL);
+	priv->log_domains = g_key_file_get_string (keyfile, NM_CONFIG_KEYFILE_GROUP_LOGGING, "domains", NULL);
 
-	priv->debug = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "debug", NULL);
+	priv->debug = g_key_file_get_string (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "debug", NULL);
 
 	priv->configure_and_quit = nm_config_keyfile_get_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "configure-and-quit", FALSE);
 
