@@ -729,7 +729,7 @@ read_entire_config (const NMConfigCmdLineOptions *cli,
 
 	plugins_default = g_strsplit (CONFIG_PLUGINS_DEFAULT, ",", -1);
 	if (plugins_default && plugins_default[0])
-		nm_config_keyfile_set_string_list (keyfile, "main", "plugins", (const char *const*) plugins_default, -1);
+		nm_config_keyfile_set_string_list (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "plugins", (const char *const*) plugins_default, -1);
 	g_strfreev (plugins_default);
 
 	system_confs = _get_config_dir_files (system_config_dir);
@@ -769,15 +769,15 @@ read_entire_config (const NMConfigCmdLineOptions *cli,
 	/* Merge settings from command line. They overwrite everything read from
 	 * config files. */
 	if (cli && cli->plugins)
-		g_key_file_set_value (keyfile, "main", "plugins", cli->plugins);
+		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "plugins", cli->plugins);
 	if (cli && cli->configure_and_quit)
-		g_key_file_set_value (keyfile, "main", "configure-and-quit", "true");
+		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "configure-and-quit", "true");
 	if (cli && cli->connectivity_uri && cli->connectivity_uri[0])
-		g_key_file_set_value (keyfile, "connectivity", "uri", cli->connectivity_uri);
+		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "uri", cli->connectivity_uri);
 	if (cli && cli->connectivity_interval >= 0)
-		g_key_file_set_integer (keyfile, "connectivity", "interval", cli->connectivity_interval);
+		g_key_file_set_integer (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "interval", cli->connectivity_interval);
 	if (cli && cli->connectivity_response && cli->connectivity_response[0])
-		g_key_file_set_value (keyfile, "connectivity", "response", cli->connectivity_response);
+		g_key_file_set_value (keyfile, NM_CONFIG_KEYFILE_GROUP_CONNECTIVITY, "response", cli->connectivity_response);
 
 	str = g_string_new (o_config_main_file);
 	if (system_confs->len > 0) {
@@ -1385,22 +1385,22 @@ init_sync (GInitable *initable, GCancellable *cancellable, GError **error)
 	else
 		priv->no_auto_default_file = g_strdup (DEFAULT_NO_AUTO_DEFAULT_FILE);
 
-	priv->plugins = g_key_file_get_string_list (keyfile, "main", "plugins", NULL, NULL);
+	priv->plugins = g_key_file_get_string_list (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "plugins", NULL, NULL);
 	if (!priv->plugins)
 		priv->plugins = g_new0 (char *, 1);
 
-	priv->monitor_connection_files = nm_config_keyfile_get_boolean (keyfile, "main", "monitor-connection-files", FALSE);
+	priv->monitor_connection_files = nm_config_keyfile_get_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "monitor-connection-files", FALSE);
 
-	priv->auth_polkit = nm_config_keyfile_get_boolean (keyfile, "main", "auth-polkit", NM_CONFIG_DEFAULT_AUTH_POLKIT);
+	priv->auth_polkit = nm_config_keyfile_get_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "auth-polkit", NM_CONFIG_DEFAULT_AUTH_POLKIT);
 
-	priv->dhcp_client = g_key_file_get_value (keyfile, "main", "dhcp", NULL);
+	priv->dhcp_client = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "dhcp", NULL);
 
-	priv->log_level = g_key_file_get_value (keyfile, "logging", "level", NULL);
-	priv->log_domains = g_key_file_get_value (keyfile, "logging", "domains", NULL);
+	priv->log_level = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_LOGGING, "level", NULL);
+	priv->log_domains = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_LOGGING, "domains", NULL);
 
-	priv->debug = g_key_file_get_value (keyfile, "main", "debug", NULL);
+	priv->debug = g_key_file_get_value (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "debug", NULL);
 
-	priv->configure_and_quit = nm_config_keyfile_get_boolean (keyfile, "main", "configure-and-quit", FALSE);
+	priv->configure_and_quit = nm_config_keyfile_get_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "configure-and-quit", FALSE);
 
 	no_auto_default = no_auto_default_from_file (priv->no_auto_default_file);
 
