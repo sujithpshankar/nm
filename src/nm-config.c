@@ -111,13 +111,45 @@ static void _set_config_data (NMConfig *self, NMConfigData *new_data);
 
 /************************************************************************/
 
-gboolean
+gint
+nm_config_parse_boolean (const char *str,
+                         gint default_value)
+{
+	gsize len;
+	char *s = NULL;
+
+	if (!str)
+		return default_value;
+
+	while (str[0] && g_ascii_isspace (str[0]))
+		str++;
+
+	if (!str[0])
+		return default_value;
+
+	len = strlen (str);
+	if (g_ascii_isspace (str[len - 1])) {
+		s = g_strdup (str);
+		g_strchomp (s);
+		str = s;
+	}
+
+	if (!g_ascii_strcasecmp (str, "true") || !g_ascii_strcasecmp (str, "yes") || !g_ascii_strcasecmp (str, "on") || !g_ascii_strcasecmp (str, "1"))
+		default_value = TRUE;
+	else if (!g_ascii_strcasecmp (str, "false") || !g_ascii_strcasecmp (str, "no") || !g_ascii_strcasecmp (str, "off") || !g_ascii_strcasecmp (str, "0"))
+		default_value = FALSE;
+	if (s)
+		g_free (s);
+	return default_value;
+}
+
+gint
 nm_config_keyfile_get_boolean (GKeyFile *keyfile,
                                const char *section,
                                const char *key,
-                               gboolean default_value)
+                               gint default_value)
 {
-	gboolean value = default_value;
+	gint value = default_value;
 	char *str;
 
 	g_return_val_if_fail (keyfile != NULL, default_value);
@@ -128,16 +160,11 @@ nm_config_keyfile_get_boolean (GKeyFile *keyfile,
 	if (!str)
 		return default_value;
 
-	g_strstrip (str);
-	if (str[0]) {
-		if (!g_ascii_strcasecmp (str, "true") || !g_ascii_strcasecmp (str, "yes") || !g_ascii_strcasecmp (str, "on") || !g_ascii_strcasecmp (str, "1"))
-			value = TRUE;
-		else if (!g_ascii_strcasecmp (str, "false") || !g_ascii_strcasecmp (str, "no") || !g_ascii_strcasecmp (str, "off") || !g_ascii_strcasecmp (str, "0"))
-			value = FALSE;
-		else {
-			nm_log_warn (LOGD_CORE, "Unrecognized value for %s.%s: '%s'. Assuming '%s'",
-			             section, key, str, default_value ? "true" : "false");
-		}
+	value = nm_config_parse_boolean (str, -1);
+	if (value == -1) {
+		nm_log_warn (LOGD_CORE, "Unrecognized value for %s.%s: '%s'. Assuming '%s'",
+		             section, key, str, default_value ? "true" : "false");
+		value = default_value;
 	}
 
 	g_free (str);
