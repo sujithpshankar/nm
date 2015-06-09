@@ -24,8 +24,6 @@
 #include <string.h>
 
 #include "nm-config.h"
-#include "nm-logging.h"
-#include "nm-enum-types.h"
 #include "gsystem-local-alloc.h"
 #include "nm-device.h"
 #include "nm-core-internal.h"
@@ -69,7 +67,6 @@ typedef struct {
 
 	char *dns_mode;
 	char *rc_manager;
-	NMConfigMasterAutoconnectsSlaves master_autoconnects_slaves;
 } NMConfigDataPrivate;
 
 
@@ -82,7 +79,6 @@ enum {
 	PROP_CONNECTIVITY_INTERVAL,
 	PROP_CONNECTIVITY_RESPONSE,
 	PROP_NO_AUTO_DEFAULT,
-	PROP_MASTER_AUTOCONNECTS_SLAVES,
 
 	LAST_PROP
 };
@@ -189,14 +185,6 @@ nm_config_data_get_assume_ipv6ll_only (const NMConfigData *self, NMDevice *devic
 	g_return_val_if_fail (NM_IS_DEVICE (device), FALSE);
 
 	return nm_device_spec_match_list (device, NM_CONFIG_DATA_GET_PRIVATE (self)->assume_ipv6ll_only);
-}
-
-NMConfigMasterAutoconnectsSlaves
-nm_config_data_get_master_autoconnects_slaves (const NMConfigData *self)
-{
-	g_return_val_if_fail (self, 0);
-
-	return NM_CONFIG_DATA_GET_PRIVATE (self)->master_autoconnects_slaves;
 }
 
 /************************************************************************/
@@ -363,10 +351,6 @@ nm_config_data_diff (NMConfigData *old_data, NMConfigData *new_data)
 	if (g_strcmp0 (nm_config_data_get_rc_manager (old_data), nm_config_data_get_rc_manager (new_data)))
 		changes |= NM_CONFIG_CHANGE_RC_MANAGER;
 
-	if (nm_config_data_get_master_autoconnects_slaves (old_data) !=
-	    nm_config_data_get_master_autoconnects_slaves (new_data))
-		changes |= NM_CONFIG_CHANGE_MASTER_AUTOCONNECTS_SLAVES;
-
 	return changes;
 }
 
@@ -398,9 +382,6 @@ get_property (GObject *object,
 		break;
 	case PROP_CONNECTIVITY_RESPONSE:
 		g_value_set_string (value, nm_config_data_get_connectivity_response (self));
-		break;
-	case PROP_MASTER_AUTOCONNECTS_SLAVES:
-		g_value_set_enum (value, nm_config_data_get_master_autoconnects_slaves (self));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -494,7 +475,7 @@ constructed (GObject *object)
 {
 	NMConfigData *self = NM_CONFIG_DATA (object);
 	NMConfigDataPrivate *priv = NM_CONFIG_DATA_GET_PRIVATE (self);
-	char *tmp;
+	char *interval;
 
 	priv->connection_infos = _get_connection_infos (priv->keyfile);
 
@@ -503,33 +484,17 @@ constructed (GObject *object)
 
 	/* On missing config value, fallback to 300. On invalid value, disable connectivity checking by setting
 	 * the interval to zero. */
-	tmp = g_key_file_get_value (priv->keyfile, "connectivity", "interval", NULL);
-	priv->connectivity.interval = tmp
-	    ? _nm_utils_ascii_str_to_int64 (tmp, 10, 0, G_MAXUINT, 0)
+	interval = g_key_file_get_value (priv->keyfile, "connectivity", "interval", NULL);
+	priv->connectivity.interval = interval
+	    ? _nm_utils_ascii_str_to_int64 (interval, 10, 0, G_MAXUINT, 0)
 	    : NM_CONFIG_DEFAULT_CONNECTIVITY_INTERVAL;
-	g_free (tmp);
+	g_free (interval);
 
 	priv->dns_mode = g_key_file_get_value (priv->keyfile, "main", "dns", NULL);
 	priv->rc_manager = g_key_file_get_value (priv->keyfile, "main", "rc-manager", NULL);
 
 	priv->ignore_carrier = nm_config_get_device_match_spec (priv->keyfile, "main", "ignore-carrier");
 	priv->assume_ipv6ll_only = nm_config_get_device_match_spec (priv->keyfile, "main", "assume-ipv6ll-only");
-
-	tmp = g_key_file_get_value (priv->keyfile, "main", "master-autoconnects-slaves", NULL);
-	if (!g_strcmp0 (tmp, "always"))
-		priv->master_autoconnects_slaves = NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_ALWAYS;
-	else if (!g_strcmp0 (tmp, "never"))
-		priv->master_autoconnects_slaves = NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_NEVER;
-	else if (!g_strcmp0 (tmp, "per-master"))
-		priv->master_autoconnects_slaves = NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_PER_MASTER;
-	else {
-		priv->master_autoconnects_slaves = NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_PER_MASTER;
-		if (tmp)
-			nm_log_warn (LOGD_CORE,
-			             "Invalid value for master-autoconnects-slaves: '%s', defaulting to 'per-master'.",
-			             tmp);
-	}
-	g_free (tmp);
 
 	G_OBJECT_CLASS (nm_config_data_parent_class)->constructed (object);
 }
@@ -628,12 +593,5 @@ nm_config_data_class_init (NMConfigDataClass *config_class)
 	                         G_PARAM_CONSTRUCT_ONLY |
 	                         G_PARAM_STATIC_STRINGS));
 
-	g_object_class_install_property
-	    (object_class, PROP_MASTER_AUTOCONNECTS_SLAVES,
-	     g_param_spec_enum (NM_CONFIG_DATA_MASTER_AUTOCONNECTS_SLAVES, "", "",
-	                        NM_TYPE_CONFIG_MASTER_AUTOCONNECTS_SLAVES,
-	                        NM_CONFIG_MASTER_AUTOCONNECTS_SLAVES_PER_MASTER,
-	                        G_PARAM_READABLE |
-	                        G_PARAM_STATIC_STRINGS));
 }
 

@@ -728,8 +728,6 @@ _change_flags_one_to_string (NMConfigChangeFlags flag)
 		return "dns-mode";
 	case NM_CONFIG_CHANGE_RC_MANAGER:
 		return "rc-manager";
-	case NM_CONFIG_CHANGE_MASTER_AUTOCONNECTS_SLAVES:
-		return "master-autoconnects-slaves";
 	default:
 		g_return_val_if_reached ("unknown");
 	}
