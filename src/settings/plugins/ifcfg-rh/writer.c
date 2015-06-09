@@ -1711,13 +1711,16 @@ write_connection_setting (NMSettingConnection *s_con, shvarFile *ifcfg)
 	svSetValue (ifcfg, "AUTOCONNECT_PRIORITY", tmp, FALSE);
 	g_free (tmp);
 
-	/* Only save the value for master connections */ 
+	/* Only save the value for master connections */
 	type = nm_setting_connection_get_connection_type (s_con);
 	if (   !g_strcmp0 (type, NM_SETTING_BOND_SETTING_NAME)
 	    || !g_strcmp0 (type, NM_SETTING_TEAM_SETTING_NAME)
 	    || !g_strcmp0 (type, NM_SETTING_BRIDGE_SETTING_NAME)) {
+		NMSettingConnectionAutoconnectSlaves autoconnect_slaves;
+		autoconnect_slaves = nm_setting_connection_get_autoconnect_slaves (s_con);
 		svSetValue (ifcfg, "AUTOCONNECT_SLAVES",
-		            nm_setting_connection_get_autoconnect_slaves (s_con) ? "yes" : "no",
+		            autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES ? "yes" :
+		            autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_NO ? "no" : NULL,
 		            FALSE);
 	}
 
