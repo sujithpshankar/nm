@@ -27,6 +27,7 @@
 
 #include "nm-utils.h"
 #include "nm-utils-private.h"
+#include "nm-core-enum-types.h"
 #include "nm-setting-connection.h"
 #include "nm-connection-private.h"
 #include "nm-setting-bond.h"
@@ -66,7 +67,7 @@ typedef struct {
 	char *type;
 	char *master;
 	char *slave_type;
-	gboolean autoconnect_slaves;
+	NMSettingConnectionAutoconnectSlaves autoconnect_slaves;
 	GSList *permissions; /* list of Permission structs */
 	gboolean autoconnect;
 	gint autoconnect_priority;
@@ -615,10 +616,10 @@ nm_setting_connection_is_slave_type (NMSettingConnection *setting,
  *
  * Since: 1.2
  **/
-gboolean
+NMSettingConnectionAutoconnectSlaves
 nm_setting_connection_get_autoconnect_slaves (NMSettingConnection *setting)
 {
-	g_return_val_if_fail (NM_IS_SETTING_CONNECTION (setting), FALSE);
+	g_return_val_if_fail (NM_IS_SETTING_CONNECTION (setting), NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT);
 
 	return NM_SETTING_CONNECTION_GET_PRIVATE (setting)->autoconnect_slaves;
 }
@@ -1144,7 +1145,7 @@ set_property (GObject *object, guint prop_id,
 		priv->slave_type = g_value_dup_string (value);
 		break;
 	case PROP_AUTOCONNECT_SLAVES:
-		priv->autoconnect_slaves = g_value_get_boolean (value);
+		priv->autoconnect_slaves = g_value_get_enum (value);
 		break;
 	case PROP_SECONDARIES:
 		g_slist_free_full (priv->secondaries, g_free);
@@ -1218,7 +1219,7 @@ get_property (GObject *object, guint prop_id,
 		g_value_set_string (value, nm_setting_connection_get_slave_type (setting));
 		break;
 	case PROP_AUTOCONNECT_SLAVES:
-		g_value_set_boolean (value, nm_setting_connection_get_autoconnect_slaves (setting));
+		g_value_set_enum (value, nm_setting_connection_get_autoconnect_slaves (setting));
 		break;
 	case PROP_SECONDARIES:
 		g_value_take_boxed (value, _nm_utils_slist_to_strv (priv->secondaries));
@@ -1556,8 +1557,10 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 	 * Whether or not slaves of this connection should be automatically brought up
 	 * when NetworkManager activates this connection. This only has a real effect
 	 * for master connections.
-	 * %TRUE to activate all the slave connections with this connection; %FALSE to
-	 * leave slave connections untouched, which is default.
+	 * The permitted values are: 0: leave slave connections untouched,
+	 * 1: activate all the slave connections with this connection, -1: default.
+	 * If -1 (default) is set, global connection.autoconnect-slaves is read to
+	 * determine the real value. If it is default as well, this fallbacks to 0.
 	 *
 	 * Since: 1.2
 	 **/
@@ -1571,12 +1574,13 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 	 */
 	g_object_class_install_property
 		(object_class, PROP_AUTOCONNECT_SLAVES,
-		 g_param_spec_boolean (NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES, "", "",
-		                       FALSE,
-		                       G_PARAM_READWRITE |
-		                       G_PARAM_CONSTRUCT |
-		                       NM_SETTING_PARAM_FUZZY_IGNORE |
-		                       G_PARAM_STATIC_STRINGS));
+		 g_param_spec_enum (NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES, "", "",
+		                    NM_TYPE_SETTING_CONNECTION_AUTOCONNECT_SLAVES,
+		                    NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT,
+		                    G_PARAM_READWRITE |
+		                    G_PARAM_CONSTRUCT |
+		                    NM_SETTING_PARAM_FUZZY_IGNORE |
+		                    G_PARAM_STATIC_STRINGS));
 
 	/**
 	 * NMSettingConnection:secondaries:
