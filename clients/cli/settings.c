@@ -777,6 +777,24 @@ ip6_privacy_to_string (NMSettingIP6ConfigPrivacy ip6_privacy, NmcPropertyGetType
 }
 
 static char *
+autoconnect_slaves_to_string (NMSettingConnectionAutoconnectSlaves autoconnect_slaves,
+                              NmcPropertyGetType get_type)
+{
+	if (get_type == NMC_PROPERTY_GET_PARSABLE)
+		return g_strdup_printf ("%d", autoconnect_slaves);
+
+	switch (autoconnect_slaves) {
+	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_NO:
+		return g_strdup_printf (_("%d (no)"), autoconnect_slaves);
+	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES:
+		return g_strdup_printf (_("%d (yes)"), autoconnect_slaves);
+	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT:
+	default:
+		return g_strdup_printf (_("%d (default)"), autoconnect_slaves);
+	}
+}
+
+static char *
 secret_flags_to_string (guint32 flags, NmcPropertyGetType get_type)
 {
 	GString *flag_str;
@@ -1094,7 +1112,14 @@ nmc_property_connection_get_permissions (NMSetting *setting, NmcPropertyGetType 
 DEFINE_GETTER (nmc_property_connection_get_zone, NM_SETTING_CONNECTION_ZONE)
 DEFINE_GETTER (nmc_property_connection_get_master, NM_SETTING_CONNECTION_MASTER)
 DEFINE_GETTER (nmc_property_connection_get_slave_type, NM_SETTING_CONNECTION_SLAVE_TYPE)
-DEFINE_GETTER (nmc_property_connection_get_autoconnect_slaves, NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES)
+
+static char *
+nmc_property_connection_get_autoconnect_slaves (NMSetting *setting, NmcPropertyGetType get_type)
+{
+	NMSettingConnection *s_con = NM_SETTING_CONNECTION (setting);
+	return autoconnect_slaves_to_string (nm_setting_connection_get_autoconnect_slaves (s_con), get_type);
+}
+
 DEFINE_GETTER (nmc_property_connection_get_secondaries, NM_SETTING_CONNECTION_SECONDARIES)
 DEFINE_GETTER (nmc_property_connection_get_gateway_ping_timeout, NM_SETTING_CONNECTION_GATEWAY_PING_TIMEOUT)
 
@@ -2293,6 +2318,22 @@ nmc_property_set_bool (NMSetting *setting, const char *prop, const char *val, GE
 		return FALSE;
 
 	g_object_set (setting, prop, val_bool, NULL);
+	return TRUE;
+}
+
+static gboolean
+nmc_property_set_trilean (NMSetting *setting, const char *prop, const char *val, GError **error)
+{
+	long int val_int;
+
+	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+	if (!nmc_string_to_int (val, TRUE, -1, 1, &val_int)) {
+		g_set_error (error, 1, 0, _("'%s' is not a valid value; use -1, 0 or 1"), val);
+		return FALSE;
+	}
+
+	g_object_set (setting, prop, val_int, NULL);
 	return TRUE;
 }
 
@@ -5363,7 +5404,7 @@ nmc_properties_init (void)
 	                    NULL);
 	nmc_add_prop_funcs (GLUE (CONNECTION, AUTOCONNECT_SLAVES),
 	                    nmc_property_connection_get_autoconnect_slaves,
-	                    nmc_property_set_bool,
+	                    nmc_property_set_trilean,
 	                    NULL,
 	                    NULL,
 	                    NULL,
