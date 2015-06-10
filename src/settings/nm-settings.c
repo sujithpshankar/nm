@@ -758,20 +758,9 @@ load_plugins (NMSettings *self, const char **plugins, GError **error)
 	const char **iter;
 	gboolean keyfile_added = FALSE;
 	gboolean success = TRUE;
-	gs_strfreev char **plugins_stripped = NULL;
 	gboolean add_ibft = FALSE;
 	gboolean has_no_ibft;
 	gssize idx_no_ibft, idx_ibft;
-
-	if (plugins) {
-		char **miter;
-
-		/* preprocess plugin list and strip whitespaces. */
-		plugins_stripped = g_strdupv ((char **) plugins);
-		for (miter = plugins_stripped; *miter; miter++)
-			g_strstrip (*miter);
-		plugins = (const char **) plugins_stripped;
-	}
 
 	idx_ibft    = _nm_utils_strv_find_first ((char **) plugins, -1, "ibft");
 	idx_no_ibft = _nm_utils_strv_find_first ((char **) plugins, -1, "no-ibft");

@@ -1397,6 +1397,12 @@ init_sync (GInitable *initable, GCancellable *cancellable, GError **error)
 	priv->plugins = g_key_file_get_string_list (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "plugins", NULL, NULL);
 	if (!priv->plugins)
 		priv->plugins = g_new0 (char *, 1);
+	else {
+		char **p;
+
+		for (p = priv->plugins; *p; p++)
+			g_strstrip (*p);
+	}
 
 	priv->monitor_connection_files = nm_config_keyfile_get_boolean (keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "monitor-connection-files", FALSE);
 
