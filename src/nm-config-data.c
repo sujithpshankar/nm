@@ -282,26 +282,36 @@ _merge_keyfiles (GKeyFile *keyfile_user, GKeyFile *keyfile_intern)
 	for (g = 0; groups[g]; g++) {
 		const char *group = groups[g];
 		gs_strfreev char **keys = NULL;
-		gboolean is_intern;
+		gboolean is_intern, is_atomic = FALSE;
 
 		keys = g_key_file_get_keys (keyfile_intern, group, NULL, NULL);
 		if (!keys)
 			continue;
 
 		is_intern = g_str_has_prefix (group, NM_CONFIG_KEYFILE_GROUPPREFIX_INTERN);
+		if (   !is_intern
+		    && g_key_file_has_key (keyfile_intern, group, NM_CONFIG_KEYFILE_KEY_ATOMIC_SECTION_WAS, NULL)) {
+			/* the entire section is atomically overwritten by @keyfile_intern. */
+			g_key_file_remove_group (keyfile, group, NULL);
+			is_atomic = TRUE;
+		}
 
 		for (k = 0; keys[k]; k++) {
 			const char *key = keys[k];
 			gs_free char *value = NULL;
 
-			if (!is_intern && _HAS_PREFIX (key, NM_CONFIG_KEYFILE_KEYPREFIX_WAS)) {
+			if (is_atomic && strcmp (key, NM_CONFIG_KEYFILE_KEY_ATOMIC_SECTION_WAS) == 0)
+				continue;
+
+			if (   !is_intern && !is_atomic
+			    && _HAS_PREFIX (key, NM_CONFIG_KEYFILE_KEYPREFIX_WAS)) {
 				const char *key_base = &key[STRLEN (NM_CONFIG_KEYFILE_KEYPREFIX_WAS)];
 
 				if (!g_key_file_has_key (keyfile_intern, group, key_base, NULL))
 					g_key_file_remove_key (keyfile, group, key_base, NULL);
 				continue;
 			}
-			if (!is_intern && _HAS_PREFIX (key, NM_CONFIG_KEYFILE_KEYPREFIX_SET))
+			if (!is_intern && !is_atomic && _HAS_PREFIX (key, NM_CONFIG_KEYFILE_KEYPREFIX_SET))
 				continue;
 
 			value = g_key_file_get_value (keyfile_intern, group, key, NULL);
