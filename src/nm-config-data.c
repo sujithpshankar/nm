@@ -119,6 +119,15 @@ nm_config_data_get_config_description (const NMConfigData *self)
 	return NM_CONFIG_DATA_GET_PRIVATE (self)->config_description;
 }
 
+gboolean
+nm_config_data_has_group (const NMConfigData *self, const char *group)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), FALSE);
+	g_return_val_if_fail (group && *group, FALSE);
+
+	return g_key_file_has_group (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, group);
+}
+
 char *
 nm_config_data_get_value (const NMConfigData *self, const char *group, const char *key)
 {
@@ -129,6 +138,21 @@ nm_config_data_get_value (const NMConfigData *self, const char *group, const cha
 	/* nm_config_data_get_value() translates to g_key_file_get_string(), because we want
 	 * to use the string representation, not the (raw) GKeyFile value. */
 	return g_key_file_get_string (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, group, key, NULL);
+}
+
+gboolean
+nm_config_data_has_value (const NMConfigData *self, const char *group, const char *key)
+{
+	gs_free char *value = NULL;
+
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), FALSE);
+	g_return_val_if_fail (group && *group, FALSE);
+	g_return_val_if_fail (key && *key, FALSE);
+
+	/* nm_config_data_get_value() translates to g_key_file_get_string(), because we want
+	 * to use the string representation, not the (raw) GKeyFile value. */
+	value = g_key_file_get_string (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, group, key, NULL);
+	return !!value;
 }
 
 gint
@@ -261,6 +285,68 @@ GKeyFile *
 _nm_config_data_get_keyfile_user (const NMConfigData *self)
 {
 	return NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile_user;
+}
+
+/************************************************************************/
+
+/**
+ * nm_config_data_get_groups:
+ * @self: the #NMConfigData instance
+ *
+ * Returns: (transfer-full): the list of groups in the configuration. The order
+ * of the section is undefined, as the configuration gets merged from multiple
+ * sources.
+ */
+char **
+nm_config_data_get_groups (const NMConfigData *self)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), NULL);
+
+	return g_key_file_get_groups (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, NULL);
+}
+
+char **
+nm_config_data_get_keys (const NMConfigData *self, const char *group)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), NULL);
+	g_return_val_if_fail (group && *group, NULL);
+
+	return g_key_file_get_keys (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, group, NULL, NULL);
+}
+
+/**
+ * nm_config_data_is_intern_atomic_group:
+ * @self:
+ * @group: name of the group to check.
+ *
+ * whether @group is entirely overwritten by internal configuration, i.e.
+ * whether it is an atomic group that is overwritten.
+ *
+ * It doesn't say, that there actually is something to be overwritten. That
+ * means there could be no corresponding section defined in user configuration
+ * that required overwriting.
+ *
+ * Returns: %TRUE if the group is an atomic group and set via internal configuration.
+ */
+gboolean
+nm_config_data_is_intern_atomic_group (const NMConfigData *self, const char *group)
+{
+	NMConfigDataPrivate *priv;
+
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), FALSE);
+	g_return_val_if_fail (group && *group, FALSE);
+
+	priv = NM_CONFIG_DATA_GET_PRIVATE (self);
+
+	if (   !priv->keyfile_intern
+	    || !g_key_file_has_key (priv->keyfile_intern, group, NM_CONFIG_KEYFILE_KEY_ATOMIC_SECTION_WAS, NULL))
+		return FALSE;
+
+	/* we have a .was entry for the section. That means that the section would be overwritten
+	 * from user configuration. But it doesn't mean that the merged configuration contains this
+	 * groups, because the internal setting could hide the user section.
+	 * Only return TRUE, if we actually have such a group in the merged configuration.*/
+	return g_key_file_has_group (priv->keyfile, group);
 }
 
 /************************************************************************/
@@ -400,9 +486,12 @@ nm_config_data_log (const NMConfigData *self, const char *prefix)
 	for (g = 0; groups[g]; g++) {
 		const char *group = groups[g];
 		gs_strfreev char **keys = NULL;
+		gboolean is_atomic;
+
+		is_atomic = nm_config_data_is_intern_atomic_group (self, group);
 
 		_LOG ("");
-		_LOG ("[%s]", group);
+		_LOG ("[%s]%s", group, is_atomic ? "*" : "");
 
 		keys = g_key_file_get_keys (priv->keyfile, group, NULL, NULL);
 		for (k = 0; keys && keys[k]; k++) {
