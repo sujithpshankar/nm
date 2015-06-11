@@ -2454,19 +2454,22 @@ should_connect_slaves (NMConnection *connection, NMDevice *device)
 
 	/* Check autoconnect-slaves property */
 	autoconnect_slaves = nm_setting_connection_get_autoconnect_slaves (s_con);
-	if (autoconnect_slaves != NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT)
+	if (   autoconnect_slaves != NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_NO
+	    && autoconnect_slaves != NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_YES)
 		goto out;
 
 	/* Check configuration default for autoconnect-slaves property */
 	value = nm_config_data_get_connection_default (nm_config_get_data (nm_config_get ()),
 	                                               "connection.autoconnect-slaves", device);
 	if (value)
-		autoconnect_slaves = _nm_utils_ascii_str_to_int64 (value, 10, 0, 1, -1);
+		autoconnect_slaves = _nm_utils_ascii_str_to_int64 (value, 10, -2, 1, -2);
 
 out:
 	if (autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_NO)
 		return FALSE;
 	if (autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES)
+		return TRUE;
+	if (autoconnect_slaves == NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_YES)
 		return TRUE;
 	return FALSE;
 }
