@@ -50,6 +50,7 @@ G_BEGIN_DECLS
  * @NM_SETTING_WIRED_WAKE_ON_LAN_BROADCAST: Wake on broadcast messages
  * @NM_SETTING_WIRED_WAKE_ON_LAN_ARP: Wake on ARP
  * @NM_SETTING_WIRED_WAKE_ON_LAN_MAGIC: Wake on magic packet
+ * @NM_SETTING_WIRED_WAKE_ON_LAN_ALL: Combination of all non-default flags
  *
  * Options for #NMSettingWired:wake-on-lan. Note that not all options
  * are supported by all devices.
@@ -64,7 +65,8 @@ typedef enum {
 	NM_SETTING_WIRED_WAKE_ON_LAN_MULTICAST = (1 << 3),
 	NM_SETTING_WIRED_WAKE_ON_LAN_BROADCAST = (1 << 4),
 	NM_SETTING_WIRED_WAKE_ON_LAN_ARP       = (1 << 5),
-	NM_SETTING_WIRED_WAKE_ON_LAN_MAGIC     = (1 << 6)
+	NM_SETTING_WIRED_WAKE_ON_LAN_MAGIC     = (1 << 6),
+	NM_SETTING_WIRED_WAKE_ON_LAN_ALL       = (1 << 7) - 1 - (1 << 0),
 } NMSettingWiredWakeOnLan;
 
 #define NM_SETTING_WIRED_PORT "port"

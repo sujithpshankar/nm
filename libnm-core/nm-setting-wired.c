@@ -563,7 +563,9 @@ nm_setting_wired_get_valid_s390_options (NMSettingWired *setting)
  * nm_setting_wired_get_wake_on_lan:
  * @setting: the #NMSettingWired
  *
- * Returns the Wake-on-LAN setting
+ * Returns the Wake-on-LAN options enabled for the connection
+ *
+ * Returns: the Wake-on-LAN options
  *
  * Since: 1.2
  */
@@ -1174,17 +1176,18 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_class)
 	/**
 	 * NMSettingWired:wake-on-lan:
 	 *
-	 * The Wake-on-LAN modes to use. Not all devices support all modes.
+	 * The #NMSettingWiredWakeOnLan options to enable. Not all devices support all options.
+	 * May be any combination of %NM_SETTING_WIRED_WAKE_ON_LAN_PHY,
+	 * %NM_SETTING_WIRED_WAKE_ON_LAN_UNICAST, %NM_SETTING_WIRED_WAKE_ON_LAN_MULTICAST,
+	 * %NM_SETTING_WIRED_WAKE_ON_LAN_BROADCAST, %NM_SETTING_WIRED_WAKE_ON_LAN_ARP,
+	 * %NM_SETTING_WIRED_WAKE_ON_LAN_MAGIC.
 	 *
 	 * Since: 1.2
 	 **/
 	g_object_class_install_property
 		(object_class, PROP_WAKE_ON_LAN,
-		 g_param_spec_uint (NM_SETTING_WIRED_WAKE_ON_LAN,
-		                    "Wake-on-LAN",
-		                    "The Wake-on-LAN modes to use. "
-		                    "Not all devices support all modes.",
-		                    0, G_MAXUINT32, 0,
+		 g_param_spec_uint (NM_SETTING_WIRED_WAKE_ON_LAN, "", "",
+		                    0, G_MAXUINT32, NM_SETTING_WIRED_WAKE_ON_LAN_NONE,
 		                    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	/**
