@@ -265,6 +265,45 @@ _nm_config_data_get_keyfile_user (const NMConfigData *self)
 
 /************************************************************************/
 
+char **
+nm_config_data_get_groups (const NMConfigData *self)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), NULL);
+
+	return g_key_file_get_groups (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, NULL);
+}
+
+char **
+nm_config_data_get_keys (const NMConfigData *self, const char *group)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), NULL);
+	g_return_val_if_fail (group && *group, NULL);
+
+	return g_key_file_get_keys (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile, group, NULL, NULL);
+}
+
+/**
+ * nm_config_data_is_atomic_group:
+ * @self:
+ * @group: name of the group to check.
+ *
+ * whether @group is entirely overwritten by internal configuration, i.e.
+ * whether it is an atomic group that is overwritten. It doesn't say, that
+ * there actually is something to be overwritten.
+ *
+ * Returns: %TRUE if the group is an atomic group and set via internal configuration.
+ */
+gboolean
+nm_config_data_is_atomic_group (const NMConfigData *self, const char *group)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), FALSE);
+	g_return_val_if_fail (group && *group, FALSE);
+
+	return g_key_file_has_key (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile_intern, group, NM_CONFIG_KEYFILE_KEY_ATOMIC_SECTION_WAS, NULL);
+}
+
+/************************************************************************/
+
 static GKeyFile *
 _merge_keyfiles (GKeyFile *keyfile_user, GKeyFile *keyfile_intern)
 {
@@ -400,9 +439,12 @@ nm_config_data_log (const NMConfigData *self, const char *prefix)
 	for (g = 0; groups[g]; g++) {
 		const char *group = groups[g];
 		gs_strfreev char **keys = NULL;
+		gboolean is_atomic;
+
+		is_atomic = nm_config_data_is_atomic_group (self, group);
 
 		_LOG ("");
-		_LOG ("[%s]", group);
+		_LOG ("[%s]%s", group, is_atomic ? "*" : "");
 
 		keys = g_key_file_get_keys (priv->keyfile, group, NULL, NULL);
 		for (k = 0; keys && keys[k]; k++) {
