@@ -1552,7 +1552,10 @@ nmc_property_wired_set_wake_on_lan (NMSetting *setting, const char *prop,
 		g_object_set (setting, prop, (guint) wol, NULL);
 		return TRUE;
 	} else {
-		g_set_error (error, 1, 0, "invalid option '%s'", err_token);
+		g_set_error (error, 1, 0, _("invalid option '%s', use a combination of %s"),
+		             err_token,
+		             nm_meta_flag_to_str (nm_meta_flags_wake_on_lan,
+		                                  NM_SETTING_WIRED_WAKE_ON_LAN_ALL));
 		g_free (err_token);
 		return FALSE;
 	}
