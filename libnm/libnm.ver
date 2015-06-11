@@ -852,7 +852,6 @@ global:
 	nm_device_get_nm_plugin_missing;
 	nm_meta_flag_from_str;
 	nm_meta_flag_to_str;
-	nm_meta_flags_wake_on_lan;
 	nm_metered_get_type;
 	nm_setting_802_1x_check_cert_scheme;
 	nm_setting_bridge_get_multicast_snooping;
@@ -866,6 +865,7 @@ global:
 	nm_setting_ip_config_remove_dns_option_by_value;
 	nm_setting_wired_get_wake_on_lan;
 	nm_setting_wired_get_wake_on_lan_password;
+	nm_setting_wired_wake_on_lan_get_meta_flags;
 	nm_setting_wired_wake_on_lan_get_type;
 	nm_setting_wireless_get_powersave;
 	nm_utils_bond_mode_int_to_string;
