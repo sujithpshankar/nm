@@ -621,7 +621,7 @@ nm_setting_connection_is_slave_type (NMSettingConnection *setting,
 NMSettingConnectionAutoconnectSlaves
 nm_setting_connection_get_autoconnect_slaves (NMSettingConnection *setting)
 {
-	g_return_val_if_fail (NM_IS_SETTING_CONNECTION (setting), NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT);
+	g_return_val_if_fail (NM_IS_SETTING_CONNECTION (setting), NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_NO);
 
 	return NM_SETTING_CONNECTION_GET_PRIVATE (setting)->autoconnect_slaves;
 }
@@ -1594,10 +1594,12 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 	 * Whether or not slaves of this connection should be automatically brought up
 	 * when NetworkManager activates this connection. This only has a real effect
 	 * for master connections.
-	 * The permitted values are: 0: leave slave connections untouched,
-	 * 1: activate all the slave connections with this connection, -1: default.
-	 * If -1 (default) is set, global connection.autoconnect-slaves is read to
-	 * determine the real value. If it is default as well, this fallbacks to 0.
+	 * The permitted values are: 0: no = leave slave connections untouched,
+	 * 1: yes = activate all the slave connections with this connection,
+	 * -2: default no, -1: default yes.
+	 * If -2 or -1 (default) is set, global connection.autoconnect-slaves is read to
+	 * determine the real value. If it is default as well, this fallbacks to 0 (for -2)
+	 * or to 1 (for -1).
 	 *
 	 * Since: 1.2
 	 **/
@@ -1613,7 +1615,7 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 		(object_class, PROP_AUTOCONNECT_SLAVES,
 		 g_param_spec_enum (NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES, "", "",
 		                    NM_TYPE_SETTING_CONNECTION_AUTOCONNECT_SLAVES,
-		                    NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT,
+		                    NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_NO,
 		                    G_PARAM_READWRITE |
 		                    G_PARAM_CONSTRUCT |
 		                    NM_SETTING_PARAM_FUZZY_IGNORE |

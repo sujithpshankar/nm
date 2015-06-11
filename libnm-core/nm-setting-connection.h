@@ -64,7 +64,10 @@ G_BEGIN_DECLS
 /* Types for property values */
 /**
  * NMSettingConnectionAutoconnectSlaves:
- * @NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT: default value
+ * @NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_NO: default value
+     (no for missing global default)
+ * @NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_YES: default value
+     (yes for missing global default)
  * @NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_NO: slaves are not brought up when
  *   master is activated
  * @NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES: slaves are brought up when
@@ -74,7 +77,8 @@ G_BEGIN_DECLS
  * should be activated when master is activated.
  */
 typedef enum {
-	NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT = -1,
+	NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_NO = -2,
+	NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_YES = -1,
 	NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_NO = 0,
 	NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES = 1,
 } NMSettingConnectionAutoconnectSlaves;
