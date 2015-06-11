@@ -639,12 +639,19 @@ nm_settings_keyfile_plugin_new (void)
 {
 	static SCPluginKeyfile *singleton = NULL;
 	SCPluginKeyfilePrivate *priv;
+	char *value;
 
 	if (!singleton) {
 		singleton = SC_PLUGIN_KEYFILE (g_object_new (SC_TYPE_PLUGIN_KEYFILE, NULL));
 		priv = SC_PLUGIN_KEYFILE_GET_PRIVATE (singleton);
 
 		priv->config = g_object_ref (nm_config_get ());
+		value = nm_config_data_get_value (nm_config_get_data (priv->config),
+		                                  "keyfile", "hostname", NULL);
+		if (value) {
+			nm_log_warn (LOGD_SETTINGS, "keyfile: 'hostname' option is deprecated and has no effect");
+			g_free (value);
+		}
 	} else
 		g_object_ref (singleton);
 
