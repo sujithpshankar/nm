@@ -790,9 +790,11 @@ autoconnect_slaves_to_string (NMSettingConnectionAutoconnectSlaves autoconnect_s
 		return g_strdup_printf (_("%d (no)"), autoconnect_slaves);
 	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_YES:
 		return g_strdup_printf (_("%d (yes)"), autoconnect_slaves);
-	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT:
+	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_YES:
+		return g_strdup_printf (_("%d (default yes)"), autoconnect_slaves);
+	case NM_SETTING_CONNECTION_AUTOCONNECT_SLAVES_DEFAULT_NO:
 	default:
-		return g_strdup_printf (_("%d (default)"), autoconnect_slaves);
+		return g_strdup_printf (_("%d (default no)"), autoconnect_slaves);
 	}
 }
 
@@ -1120,6 +1122,22 @@ nmc_property_connection_get_autoconnect_slaves (NMSetting *setting, NmcPropertyG
 {
 	NMSettingConnection *s_con = NM_SETTING_CONNECTION (setting);
 	return autoconnect_slaves_to_string (nm_setting_connection_get_autoconnect_slaves (s_con), get_type);
+}
+
+static gboolean
+nmc_property_connection_set_autoconnect_slaves (NMSetting *setting, const char *prop,
+                                                const char *val, GError **error)
+{
+	long int val_int;
+
+	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+	if (!nmc_string_to_int (val, TRUE, -2, 1, &val_int)) {
+		g_set_error (error, 1, 0, _("'%s' is not a valid value; use -2, -1, 0 or 1"), val);
+		return FALSE;
+	}
+	g_object_set (setting, prop, val_int, NULL);
+	return TRUE;
 }
 
 DEFINE_GETTER (nmc_property_connection_get_secondaries, NM_SETTING_CONNECTION_SECONDARIES)
