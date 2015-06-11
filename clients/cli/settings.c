@@ -1534,7 +1534,7 @@ nmc_property_wired_get_wake_on_lan (NMSetting *setting, NmcPropertyGetType get_t
 	NMSettingWiredWakeOnLan wol;
 
 	wol = nm_setting_wired_get_wake_on_lan (s_wired);
-	return nm_meta_flag_to_str (nm_meta_flags_wake_on_lan, wol);
+	return nm_meta_flag_to_str (nm_setting_wired_wake_on_lan_get_meta_flags (), wol);
 }
 
 static gboolean
@@ -1545,7 +1545,7 @@ nmc_property_wired_set_wake_on_lan (NMSetting *setting, const char *prop,
 	char *err_token;
 	gboolean ret;
 
-	ret = nm_meta_flag_from_str (nm_meta_flags_wake_on_lan, val,
+	ret = nm_meta_flag_from_str (nm_setting_wired_wake_on_lan_get_meta_flags (), val,
 	                             (int *) &wol, &err_token);
 
 	if (ret) {
@@ -1554,7 +1554,7 @@ nmc_property_wired_set_wake_on_lan (NMSetting *setting, const char *prop,
 	} else {
 		g_set_error (error, 1, 0, _("invalid option '%s', use a combination of %s"),
 		             err_token,
-		             nm_meta_flag_to_str (nm_meta_flags_wake_on_lan,
+		             nm_meta_flag_to_str (nm_setting_wired_wake_on_lan_get_meta_flags (),
 		                                  NM_SETTING_WIRED_WAKE_ON_LAN_ALL));
 		g_free (err_token);
 		return FALSE;
