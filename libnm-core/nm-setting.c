@@ -314,7 +314,6 @@ static GQuark setting_properties_quark;
 GQuark _property_metadata_valid_values_quark;
 GQuark _property_metadata_filename_quark;
 GQuark _property_metadata_multi_quark;
-GQuark _property_metadata_hash_quark;
 
 static NMSettingProperty *
 find_property (GArray *properties, const char *name)
@@ -1861,8 +1860,6 @@ nm_setting_property_get_metadata (NMSetting *setting,
 		meta_quark = _property_metadata_filename_quark;
 	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_MULTI))
 		meta_quark = _property_metadata_multi_quark;
-	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_HASH))
-		meta_quark = _property_metadata_hash_quark;
 	else
 		return NULL;
 
@@ -1954,9 +1951,8 @@ nm_setting_property_is_multi_value (NMSetting *setting, const char *property_nam
  * @setting: the #NMSetting
  * @property_name: the name of the property
  *
- * Finds whether property with @property_name should contain a hash of options
- * (option/value pairs), i.e. it has NM_SETTING_PROPERTY_METADATA_HASH metadata
- * attached.
+ * Finds whether property with @property_name is of type G_TYPE_HASH_TABLE,
+ * i.e. option/value pairs
  *
  * Returns: %TRUE if property is a hash table of option/value pairs, %FALSE if not
  *
@@ -1971,9 +1967,9 @@ nm_setting_property_is_hash (NMSetting *setting, const char *property_name)
 	g_return_val_if_fail (property_name, FALSE);
 
 	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
-	if (!pspec)
-		return FALSE;
-	return !!g_param_spec_get_qdata (pspec, _property_metadata_hash_quark);
+	if (pspec && pspec->value_type == G_TYPE_HASH_TABLE)
+		return TRUE;
+	return FALSE;
 }
 
 /** nm_setting_property_is_boolean:
@@ -2127,20 +2123,6 @@ _nm_setting_property_set_is_multi_value (GParamSpec *pspec)
 	g_param_spec_set_qdata (pspec, _property_metadata_multi_quark, GUINT_TO_POINTER (TRUE));
 }
 
-/**
- * _nm_setting_property_set_is_hash:
- * @pspec: a GParamSpec specifying the property
- *
- * Marks the property described by @pspec as a property of hash of options.
- */
-void
-_nm_setting_property_set_is_hash (GParamSpec *pspec)
-{
-	g_return_if_fail (G_IS_PARAM_SPEC (pspec));
-
-	g_param_spec_set_qdata (pspec, _property_metadata_hash_quark, GUINT_TO_POINTER (TRUE));
-}
-
 /*****************************************************************************/
 
 static void
@@ -2189,8 +2171,6 @@ nm_setting_class_init (NMSettingClass *setting_class)
 		_property_metadata_filename_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_FILENAME);
 	if (!_property_metadata_multi_quark)
 		_property_metadata_multi_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_MULTI);
-	if (!_property_metadata_hash_quark)
-		_property_metadata_hash_quark = g_quark_from_static_string (NM_SETTING_PROPERTY_METADATA_HASH);
 
 	g_type_class_add_private (setting_class, sizeof (NMSettingPrivate));
 

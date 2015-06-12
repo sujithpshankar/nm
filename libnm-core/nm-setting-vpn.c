@@ -878,7 +878,6 @@ nm_setting_vpn_class_init (NMSettingVpnClass *setting_class)
 	                            G_PARAM_READWRITE |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_DATA, pspec);
-	_nm_setting_property_set_is_hash (pspec);
 	_nm_setting_class_transform_property (parent_class, NM_SETTING_VPN_DATA,
 	                                      G_VARIANT_TYPE ("a{ss}"),
 	                                      _nm_utils_strdict_to_dbus,
@@ -906,7 +905,6 @@ nm_setting_vpn_class_init (NMSettingVpnClass *setting_class)
 	                            NM_SETTING_PARAM_SECRET |
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_SECRETS, pspec);
-	_nm_setting_property_set_is_hash (pspec);
 	_nm_setting_class_transform_property (parent_class, NM_SETTING_VPN_SECRETS,
 	                                      G_VARIANT_TYPE ("a{ss}"),
 	                                      _nm_utils_strdict_to_dbus,

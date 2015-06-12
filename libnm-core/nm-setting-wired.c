@@ -1076,7 +1076,6 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_class)
 	                            G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_S390_OPTIONS, pspec);
 	_nm_setting_property_set_valid_values (pspec, valid_values_s390_options);
-	_nm_setting_property_set_is_hash (pspec);
 	_nm_setting_class_transform_property (parent_class, NM_SETTING_WIRED_S390_OPTIONS,
 	                                      G_VARIANT_TYPE ("a{ss}"),
 	                                      _nm_utils_strdict_to_dbus,
