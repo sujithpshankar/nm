@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <glib.h>
+#include <stdio.h>
 
 #include <nm-config.h>
 #include "nm-test-device.h"
@@ -361,6 +362,68 @@ test_config_confdir_parse_error (void)
 	g_clear_error (&error);
 }
 
+/*****************************************************************************/
+
+static void
+test_config_set_values (void)
+{
+	gs_unref_object NMConfig *config = NULL;
+	const char *CONFIG_USER = SRCDIR"/test-set-values-user.conf";
+	const char *CONFIG_INTERN = SRCDIR"/test-set-values-intern.conf";
+	const char *atomic_prefixes[] = {
+		"atomic-prefix-1.",
+		"atomic-prefix-2.",
+		NULL,
+	};
+	GError *error = NULL;
+
+	g_assert (g_file_set_contents (CONFIG_USER, "", 0, NULL));
+	g_assert (g_file_set_contents (CONFIG_INTERN, "", 0, NULL));
+
+	{
+		(void) atomic_prefixes;
+		(void) error;
+		(void) config;
+#if 0
+		NMConfigCmdLineOptions *cli;
+		gs_unref_ptrarray GPtrArray *args = NULL;
+
+		args = g_ptr_array_new ();
+		g_ptr_array_add (args, "test-config-set-values");
+		g_ptr_array_add (args, "--config-dir");
+		g_ptr_array_add (args, (char *) "");
+		g_ptr_array_add (args, "--system-config-dir");
+		g_ptr_array_add (args, (char *) "");
+		g_ptr_array_add (args, "--config");
+		g_ptr_array_add (args, (char *) CONFIG_USER);
+		g_ptr_array_add (args, "--intern-config");
+		g_ptr_array_add (args, (char *) CONFIG_INTERN);
+
+		argv = (char **)args->pdata;
+		argc = args->len;
+
+		cli = nm_config_cmd_line_options_new ();
+
+		context = g_option_context_new (NULL);
+		nm_config_cmd_line_options_add_to_entries (cli, context);
+		success = g_option_context_parse (context, &argc, &argv, NULL);
+		g_option_context_free (context);
+
+
+		config = nm_config_new (cli, (char **) atomic_prefixes, &error);
+		g_assert_no_error (error);
+		g_assert (config);
+
+		nm_config_cmd_line_options_free (cli);
+#endif
+	}
+
+	g_assert (remove (CONFIG_USER) == 0);
+	g_assert (remove (CONFIG_INTERN) == 0);
+}
+
+/*****************************************************************************/
+
 NMTST_DEFINE ();
 
 int
@@ -383,6 +446,8 @@ main (int argc, char **argv)
 	g_test_add_func ("/config/no-auto-default", test_config_no_auto_default);
 	g_test_add_func ("/config/confdir", test_config_confdir);
 	g_test_add_func ("/config/confdir-parse-error", test_config_confdir_parse_error);
+
+	g_test_add_func ("/config/set-values", test_config_set_values);
 
 	/* This one has to come last, because it leaves its values in
 	 * nm-config.c's global variables, and there's no way to reset
