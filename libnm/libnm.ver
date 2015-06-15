@@ -861,7 +861,6 @@ global:
 	nm_setting_ip_config_has_dns_options;
 	nm_setting_ip_config_remove_dns_option;
 	nm_setting_ip_config_remove_dns_option_by_value;
-	nm_setting_property_get_metadata;
 	nm_setting_property_get_valid_values;
 	nm_setting_property_is_boolean;
 	nm_setting_property_is_filename;

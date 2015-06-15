@@ -1832,47 +1832,6 @@ _nm_setting_get_deprecated_virtual_interface_name (NMSetting *setting,
 }
 
 /**
- * nm_setting_property_get_metadata:
- * @setting: the #NMSetting
- * @property_name: the name of the property to get data for
- * @datum: the meta-datum name to get data for
- *
- * Generic function to get metadata of a property, i.e. the data attached to the property
- * with NM_SETTING_PROPERTY_METADATA_... metadata.
- *
- * Returns: (transfer none): pointer to the metadata, or %NULL
- *
- * Since: 1.2
- **/
-gconstpointer
-nm_setting_property_get_metadata (NMSetting *setting,
-                                  const char *property_name,
-                                  const char *datum)
-{
-	GParamSpec *pspec;
-	GQuark meta_quark;
-
-	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
-	g_return_val_if_fail (property_name, NULL);
-
-	if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_VALID_VALUES))
-		meta_quark = _property_metadata_valid_values_quark;
-	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_FILENAME))
-		meta_quark = _property_metadata_filename_quark;
-	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_MAYBE_FILENAME))
-		meta_quark = _property_metadata_maybe_filename_quark;
-	else if (!g_strcmp0 (datum, NM_SETTING_PROPERTY_METADATA_MULTI))
-		meta_quark = _property_metadata_multi_quark;
-	else
-		return NULL;
-
-	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
-	if (!pspec)
-		return NULL;
-	return g_param_spec_get_qdata (pspec, meta_quark);
-}
-
-/**
  * nm_setting_property_get_valid_values:
  * @setting: the #NMSetting
  * @property_name: the name of the property

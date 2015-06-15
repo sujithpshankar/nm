@@ -283,10 +283,6 @@ const GVariantType *nm_setting_get_dbus_property_type (NMSetting *setting,
 #define NM_SETTING_PROPERTY_METADATA_MAYBE_FILENAME "metadata-maybe-filename"
 #define NM_SETTING_PROPERTY_METADATA_MULTI          "metadata-multi"
 NM_AVAILABLE_IN_1_2
-gconstpointer nm_setting_property_get_metadata     (NMSetting *setting,
-                                                    const char *property_name,
-                                                    const char *datum);
-NM_AVAILABLE_IN_1_2
 const char  **nm_setting_property_get_valid_values (NMSetting *setting,
                                                     const char *property_name);
 NM_AVAILABLE_IN_1_2
