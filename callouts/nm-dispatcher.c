@@ -31,6 +31,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <limits.h>
 
 #include <glib.h>
 #include <glib-unix.h>
@@ -39,6 +40,7 @@
 #include "nm-dispatcher-api.h"
 #include "nm-dispatcher-utils.h"
 #include "nm-glib-compat.h"
+#include "nm-macros-internal.h"
 
 #include "nmdbus-dispatcher.h"
 
@@ -57,6 +59,7 @@ typedef struct {
 
 	Request *current_request;
 	GQueue *pending_requests;
+	guint num_pending;
 } Handler;
 
 typedef struct {
@@ -111,6 +114,8 @@ typedef struct {
 	GPid pid;
 	DispatchResult result;
 	char *error;
+	gboolean blocking;
+	guint idx;
 } ScriptInfo;
 
 struct Request {
@@ -125,8 +130,9 @@ struct Request {
 	GPtrArray *scripts;  /* list of ScriptInfo */
 	guint idx;
 
-	guint script_watch_id;
-	guint script_timeout_id;
+	guint *script_watch_id;
+	guint *script_timeout_id;
+	guint num_pending;
 };
 
 static void
@@ -137,16 +143,6 @@ script_info_free (gpointer ptr)
 	g_free (info->script);
 	g_free (info->error);
 	g_free (info);
-}
-
-static void
-request_free (Request *request)
-{
-	g_free (request->action);
-	g_free (request->iface);
-	g_strfreev (request->envp);
-	if (request->scripts)
-		g_ptr_array_free (request->scripts, TRUE);
 }
 
 static gboolean
@@ -171,6 +167,22 @@ quit_timeout_reschedule (void)
 	quit_timeout_cancel ();
 	if (!persist)
 		quit_id = g_timeout_add_seconds (10, quit_timeout_cb, NULL);
+}
+
+static void
+request_free (Request *request)
+{
+	g_free (request->action);
+	g_free (request->iface);
+	g_strfreev (request->envp);
+	if (request->scripts)
+		g_ptr_array_free (request->scripts, TRUE);
+	g_free (request->script_timeout_id);
+	g_free (request->script_watch_id);
+
+	g_assert_cmpuint (request->handler->num_pending, >, 0);
+	if (--request->handler->num_pending == 0)
+		quit_timeout_reschedule ();
 }
 
 static void
@@ -199,20 +211,15 @@ next_request (Handler *h)
 	quit_timeout_reschedule ();
 }
 
-static gboolean
-next_script (gpointer user_data)
+static void
+complete_request (Request *request)
 {
-	Request *request = user_data;
-	Handler *h = request->handler;
 	GVariantBuilder results;
 	GVariant *ret;
 	guint i;
 
-	request->idx++;
-	if (request->idx < request->scripts->len) {
-		dispatch_one_script (request);
-		return FALSE;
-	}
+	if (request->num_pending || request->idx < request->scripts->len)
+		return;
 
 	/* All done */
 	g_variant_builder_init (&results, G_VARIANT_TYPE ("a(sus)"));
@@ -235,7 +242,21 @@ next_script (gpointer user_data)
 			g_message ("Dispatch '%s' complete", request->action);
 	}
 	request_free (request);
+}
 
+static gboolean
+next_script (gpointer user_data)
+{
+	Request *request = user_data;
+	Handler *h = request->handler;
+
+	request->idx++;
+	if (request->idx < request->scripts->len) {
+		dispatch_one_script (request);
+		return FALSE;
+	}
+
+	complete_request (request);
 	next_request (h);
 	return FALSE;
 }
@@ -248,9 +269,8 @@ script_watch_cb (GPid pid, gint status, gpointer user_data)
 
 	g_assert (pid == script->pid);
 
-	script->request->script_watch_id = 0;
-	g_source_remove (script->request->script_timeout_id);
-	script->request->script_timeout_id = 0;
+	script->request->script_watch_id[script->idx] = 0;
+	nm_clear_g_source(&script->request->script_timeout_id[script->idx]);
 
 	if (WIFEXITED (status)) {
 		err = WEXITSTATUS (status);
@@ -280,7 +300,12 @@ script_watch_cb (GPid pid, gint status, gpointer user_data)
 	}
 
 	g_spawn_close_pid (script->pid);
-	next_script (script->request);
+	script->request->num_pending--;
+
+	if (script->blocking)
+		next_script (script->request);
+	else
+		complete_request (script->request);
 }
 
 static gboolean
@@ -288,9 +313,8 @@ script_timeout_cb (gpointer user_data)
 {
 	ScriptInfo *script = user_data;
 
-	g_source_remove (script->request->script_watch_id);
-	script->request->script_watch_id = 0;
-	script->request->script_timeout_id = 0;
+	nm_clear_g_source (&script->request->script_watch_id[script->idx]);
+	script->request->script_timeout_id[script->idx] = 0;
 
 	g_warning ("Script '%s' took too long; killing it.", script->script);
 
@@ -304,8 +328,14 @@ again:
 	script->error = g_strdup_printf ("Script '%s' timed out.", script->script);
 	script->result = DISPATCH_RESULT_TIMEOUT;
 
+	script->request->num_pending--;
 	g_spawn_close_pid (script->pid);
-	g_idle_add (next_script, script->request);
+
+	if (script->blocking)
+		g_idle_add (next_script, script->request);
+	else
+		complete_request (script->request);
+
 	return FALSE;
 }
 
@@ -379,11 +409,15 @@ dispatch_one_script (Request *request)
 	argv[3] = NULL;
 
 	if (request->debug)
-		g_message ("Running script '%s'", script->script);
+		g_message ("Running script '%s', blocking: %d\n", script->script, script->blocking);
 
 	if (g_spawn_async ("/", argv, request->envp, G_SPAWN_DO_NOT_REAP_CHILD, NULL, request, &script->pid, &error)) {
-		request->script_watch_id = g_child_watch_add (script->pid, (GChildWatchFunc) script_watch_cb, script);
-		request->script_timeout_id = g_timeout_add_seconds (SCRIPT_TIMEOUT, script_timeout_cb, script);
+		request->num_pending++;
+		request->script_watch_id[script->idx] = g_child_watch_add (script->pid, (GChildWatchFunc) script_watch_cb, script);
+		request->script_timeout_id[script->idx] = g_timeout_add_seconds (SCRIPT_TIMEOUT, script_timeout_cb, script);
+
+		if (!script->blocking)
+			g_idle_add (next_script, request);
 	} else {
 		g_warning ("Failed to execute script '%s': (%d) %s",
 		           script->script, error->code, error->message);
@@ -452,6 +486,17 @@ find_scripts (const char *str_action)
 }
 
 static gboolean
+script_is_blocking (const char *path)
+{
+	char real[PATH_MAX];
+
+	if (realpath (path, real) && g_str_has_prefix (real, NMD_SCRIPT_DIR_NON_BLOCKING))
+		return FALSE;
+
+	return TRUE;
+}
+
+static gboolean
 handle_action (NMDBusDispatcher *dbus_dispatcher,
                GDBusMethodInvocation *context,
                const char *str_action,
@@ -474,6 +519,7 @@ handle_action (NMDBusDispatcher *dbus_dispatcher,
 	Request *request;
 	char **p;
 	char *iface = NULL;
+	guint i = 0;
 
 	sorted_scripts = find_scripts (str_action);
 
@@ -521,9 +567,15 @@ handle_action (NMDBusDispatcher *dbus_dispatcher,
 		ScriptInfo *s = g_malloc0 (sizeof (*s));
 		s->request = request;
 		s->script = iter->data;
+		s->idx = i++;
+		s->blocking = script_is_blocking (s->script);
 		g_ptr_array_add (request->scripts, s);
 	}
 	g_slist_free (sorted_scripts);
+
+	request->script_timeout_id = g_malloc0_n (request->scripts->len, sizeof (guint));
+	request->script_watch_id = g_malloc0_n (request->scripts->len, sizeof (guint));
+	h->num_pending++;
 
 	if (h->current_request)
 		g_queue_push_tail (h->pending_requests, request);
