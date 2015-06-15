@@ -189,6 +189,20 @@ nm_config_data_get_assume_ipv6ll_only (const NMConfigData *self, NMDevice *devic
 
 /************************************************************************/
 
+static char *
+_key_file_get_value_strip (GKeyFile *key_file,
+                           const char *group_name,
+                           const char *key,
+                           GError **error)
+{
+	char *valstr;
+
+	valstr = g_key_file_get_value (key_file, group_name, key, error);
+	if (valstr)
+		valstr = g_strstrip (valstr);
+	return valstr;
+}
+
 char *
 nm_config_data_get_connection_default (const NMConfigData *self,
                                        const char *property,
@@ -210,7 +224,7 @@ nm_config_data_get_connection_default (const NMConfigData *self,
 		char *value;
 		gboolean match;
 
-		value = g_key_file_get_value (priv->keyfile, connection_info->group_name, property, NULL);
+		value = _key_file_get_value_strip (priv->keyfile, connection_info->group_name, property, NULL);
 		if (!value && !connection_info->stop_match)
 			continue;
 
@@ -267,7 +281,7 @@ _get_connection_infos (GKeyFile *keyfile)
 			connection_info = &connection_infos[--len];
 			connection_info->group_name = iter->data;
 
-			value = g_key_file_get_value (keyfile, iter->data, "match-device", NULL);
+			value = _key_file_get_value_strip (keyfile, iter->data, "match-device", NULL);
 			if (value) {
 				connection_info->match_device.has = TRUE;
 				connection_info->match_device.spec = nm_match_spec_split (value);
@@ -299,8 +313,8 @@ _keyfile_a_contains_all_in_b (GKeyFile *kf_a, GKeyFile *kf_b)
 		keys = g_key_file_get_keys (kf_a, groups[i], NULL, NULL);
 		if (keys) {
 			for (j = 0; keys[j]; j++) {
-				gs_free char *key_a = g_key_file_get_value (kf_a, groups[i], keys[j], NULL);
-				gs_free char *key_b = g_key_file_get_value (kf_b, groups[i], keys[j], NULL);
+				gs_free char *key_a = _key_file_get_value_strip (kf_a, groups[i], keys[j], NULL);
+				gs_free char *key_b = _key_file_get_value_strip (kf_b, groups[i], keys[j], NULL);
 
 				if (g_strcmp0 (key_a, key_b) != 0)
 					return FALSE;
@@ -479,19 +493,19 @@ constructed (GObject *object)
 
 	priv->connection_infos = _get_connection_infos (priv->keyfile);
 
-	priv->connectivity.uri = g_key_file_get_value (priv->keyfile, "connectivity", "uri", NULL);
-	priv->connectivity.response = g_key_file_get_value (priv->keyfile, "connectivity", "response", NULL);
+	priv->connectivity.uri = _key_file_get_value_strip (priv->keyfile, "connectivity", "uri", NULL);
+	priv->connectivity.response = _key_file_get_value_strip (priv->keyfile, "connectivity", "response", NULL);
 
 	/* On missing config value, fallback to 300. On invalid value, disable connectivity checking by setting
 	 * the interval to zero. */
-	interval = g_key_file_get_value (priv->keyfile, "connectivity", "interval", NULL);
+	interval = _key_file_get_value_strip (priv->keyfile, "connectivity", "interval", NULL);
 	priv->connectivity.interval = interval
 	    ? _nm_utils_ascii_str_to_int64 (interval, 10, 0, G_MAXUINT, 0)
 	    : NM_CONFIG_DEFAULT_CONNECTIVITY_INTERVAL;
 	g_free (interval);
 
-	priv->dns_mode = g_key_file_get_value (priv->keyfile, "main", "dns", NULL);
-	priv->rc_manager = g_key_file_get_value (priv->keyfile, "main", "rc-manager", NULL);
+	priv->dns_mode = _key_file_get_value_strip (priv->keyfile, "main", "dns", NULL);
+	priv->rc_manager = _key_file_get_value_strip (priv->keyfile, "main", "rc-manager", NULL);
 
 	priv->ignore_carrier = nm_config_get_device_match_spec (priv->keyfile, "main", "ignore-carrier");
 	priv->assume_ipv6ll_only = nm_config_get_device_match_spec (priv->keyfile, "main", "assume-ipv6ll-only");
