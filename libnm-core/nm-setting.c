@@ -1832,6 +1832,41 @@ _nm_setting_get_deprecated_virtual_interface_name (NMSetting *setting,
 }
 
 /**
+ * nm_setting_property_metadata_implemented:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ *
+ * Return whether property metadata is implemented for @setting.@property_name.
+ * That means you can call the following functions to get meaningful results.
+ * nm_setting_property_get_gtype()
+ * nm_setting_property_get_valid_values()
+ * nm_setting_property_is_filename()
+ * nm_setting_property_maybe_filename()
+ * nm_setting_property_is_boolean()
+ * nm_setting_property_is_hash()
+ *
+ * It returns TRUE for all properties except bond.options, vpn.data and vpn.secrets.
+ * 
+ * Returns: whether meta-data are implemented for the property
+ *
+ * Since: 1.2
+ **/
+gboolean
+nm_setting_property_metadata_implemented (NMSetting *setting, const char *property_name)
+{
+	GParamSpec *pspec;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
+	g_return_val_if_fail (property_name, FALSE);
+
+	if (   (NM_IS_SETTING_BOND (setting) && !strcmp (property_name, "options"))
+	    || (NM_IS_SETTING_VPN  (setting) && !strcmp (property_name, "data"))
+	    || (NM_IS_SETTING_VPN  (setting) && !strcmp (property_name, "secrets")))
+		return FALSE;
+	return TRUE;
+}
+
+/**
  * nm_setting_property_get_gtype:
  * @setting: the #NMSetting
  * @property_name: the name of the property
@@ -1849,6 +1884,9 @@ nm_setting_property_get_gtype (NMSetting *setting, const char *property_name)
 
 	g_return_val_if_fail (NM_IS_SETTING (setting), G_TYPE_INVALID);
 	g_return_val_if_fail (property_name, G_TYPE_INVALID);
+
+	if (!nm_setting_property_metadata_implemented (setting, property_name))
+		return G_TYPE_INVALID;
 
 	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
 	if (pspec)
@@ -1876,6 +1914,9 @@ nm_setting_property_get_valid_values (NMSetting *setting, const char *property_n
 	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
 	g_return_val_if_fail (property_name, NULL);
 
+	if (!nm_setting_property_metadata_implemented (setting, property_name))
+		return NULL;
+
 	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
 	if (!pspec)
 		return NULL;
@@ -1901,6 +1942,9 @@ nm_setting_property_is_filename (NMSetting *setting, const char *property_name)
 
 	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
 	g_return_val_if_fail (property_name, FALSE);
+
+	if (!nm_setting_property_metadata_implemented (setting, property_name))
+		return FALSE;
 
 	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
 	if (!pspec)
@@ -1929,6 +1973,9 @@ nm_setting_property_maybe_filename (NMSetting *setting, const char *property_nam
 	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
 	g_return_val_if_fail (property_name, FALSE);
 
+	if (!nm_setting_property_metadata_implemented (setting, property_name))
+		return FALSE;
+
 	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
 	if (!pspec)
 		return FALSE;
@@ -1953,6 +2000,9 @@ nm_setting_property_is_multi_value (NMSetting *setting, const char *property_nam
 
 	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
 	g_return_val_if_fail (property_name, FALSE);
+
+	if (!nm_setting_property_metadata_implemented (setting, property_name))
+		return FALSE;
 
 	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
 	if (!pspec)
