@@ -125,6 +125,13 @@ gboolean nm_config_data_is_atomic_group (const NMConfigData *self, const char *g
 
 GKeyFile *nm_config_data_clone_keyfile_intern (const NMConfigData *self);
 
+GlobalDnsConf *nm_config_data_global_dns_config_from_dbus (const NMConfigData *self,
+                                                           GHashTable *hash,
+                                                           GError **error);
+
+GKeyFile *nm_config_data_global_dns_config_update_keyfile (NMConfigData *self,
+                                                           GlobalDnsConf *dns_conf);
+
 /* private accessors */
 GKeyFile *_nm_config_data_get_keyfile (const NMConfigData *self);
 GKeyFile *_nm_config_data_get_keyfile_user (const NMConfigData *self);

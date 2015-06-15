@@ -261,6 +261,19 @@
       <arg name="state" type="u" direction="out" tp:type="NM_STATE"/>
     </method>
 
+    <method name="SetGlobalDnsConfig">
+      <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="impl_manager_set_global_dns_config"/>
+      <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
+      <tp:docstring>
+      Change the global static DNS configuration.
+      </tp:docstring>
+      <arg name="config" type="a{sv}" direction="in">
+        <tp:docstring>
+          The new global DNS configuration.
+        </tp:docstring>
+      </arg>
+    </method>
+
     <property name="Devices" type="ao" access="read">
       <tp:docstring>
         The list of network devices/interfaces NetworkManager knows about.

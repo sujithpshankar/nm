@@ -272,6 +272,7 @@ main (int argc, char *argv[])
 	gboolean wrote_pidfile = FALSE;
 	char *bad_domains = NULL;
 	NMConfigCmdLineOptions *config_cli;
+	char *atomic_section_prefixes[] = { "global-dns", NULL };
 
 #if !GLIB_CHECK_VERSION (2, 35, 0)
 	g_type_init ();
@@ -343,7 +344,7 @@ main (int argc, char *argv[])
 	}
 
 	/* Read the config file and CLI overrides */
-	config = nm_config_setup (config_cli, NULL, &error);
+	config = nm_config_setup (config_cli, atomic_section_prefixes, &error);
 	nm_config_cmd_line_options_free (config_cli);
 	config_cli = NULL;
 	if (config == NULL) {

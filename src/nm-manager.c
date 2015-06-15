@@ -111,6 +111,10 @@ static void impl_manager_get_logging (NMManager *manager,
 static void impl_manager_check_connectivity (NMManager *manager,
                                              DBusGMethodInvocation *context);
 
+static void impl_manager_set_global_dns_config (NMManager *manager,
+                                                GHashTable *settings,
+                                                DBusGMethodInvocation *context);
+
 #include "nm-manager-glue.h"
 
 static void add_device (NMManager *self, NMDevice *device, gboolean try_assume);
@@ -3942,6 +3946,32 @@ impl_manager_check_connectivity (NMManager *manager,
 
 	priv->auth_chains = g_slist_append (priv->auth_chains, chain);
 	nm_auth_chain_add_call (chain, NM_AUTH_PERMISSION_NETWORK_CONTROL, TRUE);
+}
+
+static void
+impl_manager_set_global_dns_config (NMManager *manager,
+                                    GHashTable *settings,
+                                    DBusGMethodInvocation *context)
+{
+	GlobalDnsConf *dns_conf;
+	NMManagerPrivate *priv = NM_MANAGER_GET_PRIVATE (manager);
+	NMConfigData *data;
+	GError *error = NULL;
+	GKeyFile *keyfile;
+
+	// FIXME: check permissions
+	data = nm_config_get_data (priv->config);
+	dns_conf = nm_config_data_global_dns_config_from_dbus (data, settings, &error);
+	keyfile = nm_config_data_global_dns_config_update_keyfile (data, dns_conf);
+
+	nm_config_data_set_global_dns_config (data, dns_conf);
+	nm_config_set_values (priv->config, keyfile, TRUE, FALSE);
+
+	if (error) {
+		dbus_g_method_return_error (context, error);
+		g_error_free (error);
+	} else
+		dbus_g_method_return (context);
 }
 
 static void

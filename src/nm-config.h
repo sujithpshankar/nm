@@ -133,6 +133,8 @@ gint nm_config_keyfile_get_boolean (GKeyFile *keyfile,
                                     gint default_value);
 GSList *nm_config_get_device_match_spec (const GKeyFile *keyfile, const char *group, const char *key, gboolean *out_has_key);
 
+gboolean nm_config_write_global_dns_config (NMConfig *config, GlobalDnsConf *dns_conf);
+
 G_END_DECLS
 
 #endif /* __NETWORKMANAGER_CONFIG_H__ */

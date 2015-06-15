@@ -31,6 +31,9 @@
 #include "nm-macros-internal.h"
 #include "nm-logging.h"
 
+#define GLOBAL_DNS_GROUP "global-dns"
+#define GLOBAL_DNS_DOMAIN_PREFIX "global-dns-domain-"
+
 typedef struct {
 	char *group_name;
 	gboolean stop_match;
@@ -363,8 +366,22 @@ strv_to_slist (char **strv)
 	return g_slist_reverse (list);
 }
 
-#define GLOBAL_DNS_GROUP "global-dns"
-#define GLOBAL_DNS_DOMAIN_PREFIX "global-dns-domain-"
+static char **
+slist_to_strv (GSList *slist)
+{
+	GSList *iter;
+	char **strv;
+	int len, i;
+
+	len = g_slist_length (slist);
+	strv = g_new (char *, len + 1);
+
+	for (i = 0, iter = slist; iter; iter = iter->next, i++)
+		strv[i] = g_strdup (iter->data);
+	strv[i] = NULL;
+
+	return strv;
+}
 
 static GlobalDnsConf *
 load_global_dns_config (GKeyFile *keyfile)
@@ -439,6 +456,141 @@ load_global_dns_config (GKeyFile *keyfile)
 			g_hash_table_insert (conf->domains, name, domain);
 		} else
 			g_free (name);
+	}
+
+	return conf;
+}
+
+GKeyFile *
+nm_config_data_global_dns_config_update_keyfile (NMConfigData *self, GlobalDnsConf *dns_conf)
+{
+	GKeyFile *keyfile;
+	GHashTableIter iter;
+	char **groups;
+	int g;
+	gpointer key, value;
+	char **values;
+
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), NULL);
+	g_return_val_if_fail (dns_conf, NULL);
+
+	keyfile = nm_config_data_clone_keyfile_intern (self);
+
+	values = slist_to_strv (dns_conf->searches);
+	g_key_file_set_string_list (keyfile, GLOBAL_DNS_GROUP, "searches",
+	                            (const char *const *) values, g_strv_length (values));
+	g_strfreev (values);
+
+	values = slist_to_strv (dns_conf->options);
+	g_key_file_set_string_list (keyfile, GLOBAL_DNS_GROUP, "options",
+	                            (const char *const *) values, g_strv_length (values));
+	g_strfreev (values);
+
+	groups = nm_config_data_get_groups (self);
+	for (g = 0; groups[g]; g++) {
+		if (g_str_has_prefix (groups[g], GLOBAL_DNS_DOMAIN_PREFIX)) {
+			/* Override domains from user config and clear ones from internal config */
+			g_key_file_remove_group (keyfile, groups[g], NULL);
+			g_key_file_set_string (keyfile, groups[g], NM_CONFIG_KEYFILE_KEYPREFIX_WAS, "");
+		}
+	}
+	g_strfreev (groups);
+
+	g = 0;
+	g_hash_table_iter_init (&iter, dns_conf->domains);
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		char group_name[32];
+		GlobalDnsDomainConf *domain_conf = (GlobalDnsDomainConf *) value;
+
+		snprintf (group_name, sizeof (group_name), GLOBAL_DNS_DOMAIN_PREFIX "%u", (unsigned int) g++);
+		g_key_file_set_string (keyfile, group_name, "domain", (char *) key);
+
+		if (domain_conf->servers) {
+			values = slist_to_strv (domain_conf->servers);
+			g_key_file_set_string_list (keyfile, group_name, "servers",
+			                            (const char *const *) values, g_strv_length (values));
+			g_strfreev (values);
+		}
+
+		if (domain_conf->options) {
+			values = slist_to_strv (domain_conf->options);
+			g_key_file_set_string_list (keyfile, group_name, "options",
+			                            (const char *const *) values, g_strv_length (values));
+			g_strfreev (values);
+		}
+	}
+
+	return keyfile;
+}
+
+static GlobalDnsDomainConf *
+build_dns_global_domain_from_hash (const char *name, GHashTable *hash)
+{
+	GlobalDnsDomainConf *domain;
+	char **strv, **ptr;
+
+	domain = g_malloc0 (sizeof (GlobalDnsDomainConf));
+
+	strv = g_hash_table_lookup (hash, "servers");
+	if (strv) {
+		for (ptr = strv; *ptr; ptr++)
+			domain->servers = g_slist_prepend (domain->servers, *ptr);
+		domain->servers = g_slist_reverse (domain->servers);
+	}
+
+	strv = g_hash_table_lookup (hash, "options");
+	if (strv) {
+		for (ptr = strv; *ptr; ptr++)
+			domain->options = g_slist_prepend (domain->options, *ptr);
+		domain->options = g_slist_reverse (domain->options);
+	}
+
+	return domain;
+}
+
+GlobalDnsConf *
+nm_config_data_global_dns_config_from_dbus (const NMConfigData *self,
+                                            GHashTable *hash,
+                                            GError **error)
+{
+	GlobalDnsConf *conf;
+	GValue *val;
+	char **strv, **ptr;
+
+	conf = g_malloc0 (sizeof (GlobalDnsConf));
+
+	conf->domains = g_hash_table_new_full (g_str_hash, g_str_equal,
+	                                       g_free, free_global_dns_domain);
+
+	val = g_hash_table_lookup (hash, "searches");
+	if (val) {
+		strv = (char **) g_value_get_boxed (val);
+		for (ptr = strv; *ptr; ptr++)
+			conf->searches = g_slist_prepend (conf->searches, *ptr);
+		conf->searches = g_slist_reverse (conf->searches);
+	}
+
+	val = g_hash_table_lookup (hash, "options");
+	if (val) {
+		strv = (char **) g_value_get_boxed (val);
+		for (ptr = strv; *ptr; ptr++)
+			conf->options = g_slist_prepend (conf->options, *ptr);
+		conf->options = g_slist_reverse (conf->options);
+	}
+
+	val = g_hash_table_lookup (hash, "domains");
+	if (val) {
+		GHashTable *table = (GHashTable *) g_value_get_boxed (val);
+		GHashTableIter iter;
+		gpointer key, value;
+		GlobalDnsDomainConf *domain;
+
+		g_hash_table_iter_init (&iter, table);
+		while (g_hash_table_iter_next (&iter, &key, &value)) {
+			domain = build_dns_global_domain_from_hash ((char *)key, (GHashTable *) value);
+			if (domain)
+				g_hash_table_insert (conf->domains, g_strdup ((char *) key), domain);
+		}
 	}
 
 	return conf;
