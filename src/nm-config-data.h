@@ -69,6 +69,17 @@ typedef struct {
 	GObjectClass parent;
 } NMConfigDataClass;
 
+typedef struct {
+	GSList *servers;
+	GSList *options;
+} GlobalDnsDomainConf;
+
+typedef struct {
+	GSList *searches;
+	GSList *options;
+	GHashTable *domains;
+} GlobalDnsConf;
+
 GType nm_config_data_get_type (void);
 
 NMConfigData *nm_config_data_new (const char *config_main_file,
@@ -101,6 +112,8 @@ const char *nm_config_data_get_rc_manager (const NMConfigData *self);
 
 gboolean nm_config_data_get_ignore_carrier (const NMConfigData *self, NMDevice *device);
 gboolean nm_config_data_get_assume_ipv6ll_only (const NMConfigData *self, NMDevice *device);
+GlobalDnsConf *nm_config_data_get_global_dns_conf (const NMConfigData *self);
+void nm_config_data_set_global_dns_config (const NMConfigData *self, GlobalDnsConf *conf);
 
 char *nm_config_data_get_connection_default (const NMConfigData *self,
                                              const char *property,

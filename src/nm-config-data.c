@@ -72,6 +72,8 @@ typedef struct {
 
 	char *dns_mode;
 	char *rc_manager;
+
+	GlobalDnsConf *global_dns_conf;
 } NMConfigDataPrivate;
 
 
@@ -102,6 +104,29 @@ G_DEFINE_TYPE (NMConfigData, nm_config_data, G_TYPE_OBJECT)
 	})
 
 /************************************************************************/
+
+static void
+free_global_dns_domain (gpointer data)
+{
+	GlobalDnsDomainConf *domain = data;
+
+	g_return_if_fail (domain);
+
+	g_slist_free_full (domain->servers, g_free);
+	g_slist_free_full (domain->options, g_free);
+	g_free (domain);
+}
+
+static void
+free_global_dns_config (GlobalDnsConf *conf)
+{
+	if (conf) {
+		g_slist_free_full (conf->searches, g_free);
+		g_slist_free_full (conf->options, g_free);
+		g_hash_table_destroy (conf->domains);
+		g_free (conf);
+	}
+}
 
 const char *
 nm_config_data_get_config_main_file (const NMConfigData *self)
@@ -229,6 +254,26 @@ nm_config_data_get_assume_ipv6ll_only (const NMConfigData *self, NMDevice *devic
 	return nm_device_spec_match_list (device, NM_CONFIG_DATA_GET_PRIVATE (self)->assume_ipv6ll_only);
 }
 
+GlobalDnsConf *
+nm_config_data_get_global_dns_conf (const NMConfigData *self)
+{
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), FALSE);
+
+	return NM_CONFIG_DATA_GET_PRIVATE (self)->global_dns_conf;
+}
+
+void
+nm_config_data_set_global_dns_config (const NMConfigData *self, GlobalDnsConf *conf)
+{
+	NMConfigDataPrivate *priv;
+
+	g_return_val_if_fail (NM_IS_CONFIG_DATA (self), FALSE);
+
+	priv = NM_CONFIG_DATA_GET_PRIVATE (self);
+	free_global_dns_config (priv->global_dns_conf);
+	priv->global_dns_conf = conf;
+}
+
 GKeyFile *
 nm_config_data_clone_keyfile_intern (const NMConfigData *self)
 {
@@ -300,6 +345,103 @@ nm_config_data_is_atomic_group (const NMConfigData *self, const char *group)
 	g_return_val_if_fail (group && *group, FALSE);
 
 	return g_key_file_has_key (NM_CONFIG_DATA_GET_PRIVATE (self)->keyfile_intern, group, NM_CONFIG_KEYFILE_KEY_ATOMIC_SECTION_WAS, NULL);
+}
+
+/************************************************************************/
+
+static GSList *
+strv_to_slist (char **strv)
+{
+	int i;
+	GSList *list = NULL;
+
+	if (strv) {
+		for (i = 0; strv[i]; i++)
+			list = g_slist_prepend (list, g_strdup (strv[i]));
+	}
+
+	return g_slist_reverse (list);
+}
+
+#define GLOBAL_DNS_GROUP "global-dns"
+#define GLOBAL_DNS_DOMAIN_PREFIX "global-dns-domain-"
+
+static GlobalDnsConf *
+load_global_dns_config (GKeyFile *keyfile)
+{
+	GlobalDnsConf *conf;
+	char *value;
+	char **tokens, **groups;
+	int g;
+
+	g_return_val_if_fail (keyfile, NULL);
+
+	if (!g_key_file_has_group (keyfile, GLOBAL_DNS_GROUP))
+		return NULL;
+
+	conf = g_malloc0 (sizeof (GlobalDnsConf));
+	conf->domains = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, free_global_dns_domain);
+
+	value = g_key_file_get_value (keyfile, GLOBAL_DNS_GROUP, "searches", NULL);
+	if (value) {
+		tokens = g_strsplit (value, ",", 0);
+		conf->searches = strv_to_slist (tokens);
+		g_strfreev (tokens);
+		g_free (value);
+	}
+
+	value = g_key_file_get_value (keyfile, GLOBAL_DNS_GROUP, "options", NULL);
+	if (value) {
+		tokens = g_strsplit (value, ",", 0);
+		conf->options = strv_to_slist (tokens);
+		g_strfreev (tokens);
+		g_free (value);
+	}
+
+	groups = g_key_file_get_groups (keyfile, NULL);
+	for (g = 0; groups[g]; g++) {
+		char *name;
+		GSList *servers = NULL, *options = NULL;
+		GlobalDnsDomainConf *domain;
+
+		if (!g_str_has_prefix (groups[g], GLOBAL_DNS_DOMAIN_PREFIX))
+			continue;
+		name = g_key_file_get_value (keyfile, groups[g], "domain", NULL);
+		if (!name)
+			continue;
+
+		/* Skip duplicated domains */
+		if (g_hash_table_contains (conf->domains, name)) {
+				g_free (name);
+				continue;
+		}
+
+		value = g_key_file_get_value (keyfile, groups[g], "servers", NULL);
+		if (value) {
+			tokens = g_strsplit (value, ",", 0);
+			servers = strv_to_slist (tokens);
+			g_strfreev (tokens);
+			g_free (value);
+		}
+
+		value = g_key_file_get_value (keyfile, groups[g], "options", NULL);
+		if (value) {
+			tokens = g_strsplit (value, ",", 0);
+			options = strv_to_slist (tokens);
+			g_strfreev (tokens);
+			g_free (value);
+		}
+
+		if (servers || options) {
+			domain = g_malloc0 (sizeof (GlobalDnsDomainConf));
+			domain->servers = servers;
+			domain->options = options;
+			g_hash_table_insert (conf->domains, name, domain);
+		} else
+			g_free (name);
+	}
+
+	return conf;
 }
 
 /************************************************************************/
@@ -720,6 +862,8 @@ finalize (GObject *gobject)
 	g_slist_free_full (priv->ignore_carrier, g_free);
 	g_slist_free_full (priv->assume_ipv6ll_only, g_free);
 
+	free_global_dns_config (priv->global_dns_conf);
+
 	if (priv->connection_infos) {
 		for (i = 0; priv->connection_infos[i].group_name; i++) {
 			g_free (priv->connection_infos[i].group_name);
@@ -771,6 +915,7 @@ constructed (GObject *object)
 	priv->assume_ipv6ll_only = nm_config_get_device_match_spec (priv->keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "assume-ipv6ll-only", NULL);
 
 	priv->no_auto_default.specs_config = nm_config_get_device_match_spec (priv->keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "no-auto-default", NULL);
+	priv->global_dns_conf = load_global_dns_config (priv->keyfile);
 
 	G_OBJECT_CLASS (nm_config_data_parent_class)->constructed (object);
 }
