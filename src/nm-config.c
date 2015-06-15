@@ -74,6 +74,20 @@ G_DEFINE_TYPE (NMConfig, nm_config, G_TYPE_OBJECT)
 
 /************************************************************************/
 
+static char *
+_key_file_get_value_strip (GKeyFile *key_file,
+                           const char *group_name,
+                           const char *key,
+                           GError **error)
+{
+	char *valstr;
+
+	valstr = g_key_file_get_value (key_file, group_name, key, error);
+	if (valstr)
+		valstr = g_strstrip (valstr);
+	return valstr;
+}
+
 static gboolean
 _get_bool_value (GKeyFile *keyfile,
                  const char *section,
@@ -87,7 +101,7 @@ _get_bool_value (GKeyFile *keyfile,
 	g_return_val_if_fail (section != NULL, default_value);
 	g_return_val_if_fail (key != NULL, default_value);
 
-	str = g_key_file_get_value (keyfile, section, key, NULL);
+	str = _key_file_get_value_strip (keyfile, section, key, NULL);
 	if (!str)
 		return default_value;
 
@@ -411,8 +425,8 @@ read_config (NMConfig *config, const char *path, GError **error)
 
 			if (keys[k][len - 1] == '+') {
 				char *base_key = g_strndup (keys[k], len - 1);
-				char *old_val = g_key_file_get_value (priv->keyfile, groups[g], base_key, NULL);
-				char *new_val = g_key_file_get_value (kf, groups[g], keys[k], NULL);
+				char *old_val = _key_file_get_value_strip (priv->keyfile, groups[g], base_key, NULL);
+				char *new_val = _key_file_get_value_strip (kf, groups[g], keys[k], NULL);
 
 				if (old_val && *old_val) {
 					char *combined = g_strconcat (old_val, ",", new_val, NULL);
@@ -429,7 +443,7 @@ read_config (NMConfig *config, const char *path, GError **error)
 			}
 
 			g_key_file_set_value (priv->keyfile, groups[g], keys[k],
-			                      v = g_key_file_get_value (kf, groups[g], keys[k], NULL));
+			                      v = _key_file_get_value_strip (kf, groups[g], keys[k], NULL));
 			g_free (v);
 		}
 		g_strfreev (keys);
@@ -601,17 +615,17 @@ nm_config_new (GError **error)
 
 	priv->auth_polkit = _get_bool_value (priv->keyfile, "main", "auth-polkit", NM_CONFIG_DEFAULT_AUTH_POLKIT);
 
-	priv->dhcp_client = g_key_file_get_value (priv->keyfile, "main", "dhcp", NULL);
-	priv->dns_mode = g_key_file_get_value (priv->keyfile, "main", "dns", NULL);
+	priv->dhcp_client = _key_file_get_value_strip (priv->keyfile, "main", "dhcp", NULL);
+	priv->dns_mode = _key_file_get_value_strip (priv->keyfile, "main", "dns", NULL);
 
-	priv->log_level = g_key_file_get_value (priv->keyfile, "logging", "level", NULL);
-	priv->log_domains = g_key_file_get_value (priv->keyfile, "logging", "domains", NULL);
+	priv->log_level = _key_file_get_value_strip (priv->keyfile, "logging", "level", NULL);
+	priv->log_domains = _key_file_get_value_strip (priv->keyfile, "logging", "domains", NULL);
 
-	priv->debug = g_key_file_get_value (priv->keyfile, "main", "debug", NULL);
+	priv->debug = _key_file_get_value_strip (priv->keyfile, "main", "debug", NULL);
 
 	if (cli_connectivity_uri && cli_connectivity_uri[0])
 		g_key_file_set_value (priv->keyfile, "connectivity", "uri", cli_connectivity_uri);
-	priv->connectivity_uri = g_key_file_get_value (priv->keyfile, "connectivity", "uri", NULL);
+	priv->connectivity_uri = _key_file_get_value_strip (priv->keyfile, "connectivity", "uri", NULL);
 
 	if (cli_connectivity_interval >= 0)
 		g_key_file_set_integer (priv->keyfile, "connectivity", "interval", cli_connectivity_interval);
@@ -619,7 +633,7 @@ nm_config_new (GError **error)
 
 	if (cli_connectivity_response && cli_connectivity_response[0])
 		g_key_file_set_value (priv->keyfile, "connectivity", "response", cli_connectivity_response);
-	priv->connectivity_response = g_key_file_get_value (priv->keyfile, "connectivity", "response", NULL);
+	priv->connectivity_response = _key_file_get_value_strip (priv->keyfile, "connectivity", "response", NULL);
 
 	priv->ignore_carrier = g_key_file_get_string_list (priv->keyfile, "main", "ignore-carrier", NULL, NULL);
 
