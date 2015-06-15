@@ -583,12 +583,16 @@ nm_platform_link_get_by_address (NMPlatform *self,
  * @out_link: on success, the link object
  *
  * Add a software interface.  If the interface already exists and is of type
- * @type, sets platform->error to NM_PLATFORM_ERROR_EXISTS and returns the link
+ * @type, return NM_PLATFORM_ERROR_EXISTS and returns the link
  * in @out_link.  If the interface already exists and is not of type @type,
- * sets platform->error to NM_PLATFORM_ERROR_WRONG_TYPE.  Any link-changed ADDED
- * signal will be emitted directly, before this function finishes.
+ * return NM_PLATFORM_ERROR_WRONG_TYPE.
+ *
+ * Any link-changed ADDED signal will be emitted directly, before this
+ * function finishes.
+ *
+ * Returns: the error reason or NM_PLATFORM_ERROR_SUCCESS.
  */
-static gboolean
+static NMPlatformError
 nm_platform_link_add (NMPlatform *self,
                       const char *name,
                       NMLinkType type,
@@ -598,27 +602,38 @@ nm_platform_link_add (NMPlatform *self,
 {
 	int ifindex;
 
-	_CHECK_SELF (self, klass, FALSE);
+	_CHECK_SELF (self, klass, NM_PLATFORM_ERROR_BUG);
 	reset_error (self);
 
-	g_return_val_if_fail (name, FALSE);
-	g_return_val_if_fail (klass->link_add, FALSE);
-	g_return_val_if_fail ( (address != NULL) ^ (address_len == 0) , FALSE);
+	g_return_val_if_fail (name, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail (klass->link_add, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail ( (address != NULL) ^ (address_len == 0) , NM_PLATFORM_ERROR_BUG);
 
 	ifindex = nm_platform_link_get_ifindex (self, name);
 	if (ifindex > 0) {
-		debug ("link: already exists");
-		if (nm_platform_link_get_type (self, ifindex) != type)
-			self->error = NM_PLATFORM_ERROR_WRONG_TYPE;
-		else {
-			self->error = NM_PLATFORM_ERROR_EXISTS;
-			(void) nm_platform_link_get (self, ifindex, out_link);
+		NMPlatformLink pllink;
+
+		if (nm_platform_link_get (self, ifindex, &pllink)) {
+			debug ("link: already exists");
+			if (out_link)
+				*out_link = pllink;
+			if (   type != NM_LINK_TYPE_NONE
+			    && pllink.type != type) {
+				nm_platform_set_error (self, NM_PLATFORM_ERROR_WRONG_TYPE);
+				return NM_PLATFORM_ERROR_WRONG_TYPE;
+			}
+			nm_platform_set_error (self, NM_PLATFORM_ERROR_EXISTS);
+			return NM_PLATFORM_ERROR_EXISTS;
 		}
-		return FALSE;
 	}
 
 	reset_error(self);
-	return klass->link_add (self, name, type, address, address_len, out_link);
+	if (!klass->link_add (self, name, type, address, address_len, out_link)) {
+		nm_platform_set_error (self, NM_PLATFORM_ERROR_UNSPECIFIED);
+		return NM_PLATFORM_ERROR_UNSPECIFIED;
+	}
+	reset_error (self);
+	return NM_PLATFORM_ERROR_SUCCESS;
 }
 
 /**
@@ -629,10 +644,10 @@ nm_platform_link_add (NMPlatform *self,
  *
  * Create a software ethernet-like interface
  */
-gboolean
+NMPlatformError
 nm_platform_dummy_add (NMPlatform *self, const char *name, NMPlatformLink *out_link)
 {
-	g_return_val_if_fail (name, FALSE);
+	g_return_val_if_fail (name, NM_PLATFORM_ERROR_BUG);
 
 	debug ("link: adding dummy '%s'", name);
 	return nm_platform_link_add (self, name, NM_LINK_TYPE_DUMMY, NULL, 0, out_link);
@@ -1416,7 +1431,7 @@ nm_platform_link_get_master (NMPlatform *self, int slave)
  *
  * Create a software bridge.
  */
-gboolean
+NMPlatformError
 nm_platform_bridge_add (NMPlatform *self,
                         const char *name,
                         const void *address,
@@ -1435,7 +1450,7 @@ nm_platform_bridge_add (NMPlatform *self,
  *
  * Create a software bonding device.
  */
-gboolean
+NMPlatformError
 nm_platform_bond_add (NMPlatform *self, const char *name, NMPlatformLink *out_link)
 {
 	debug ("link: adding bond '%s'", name);
@@ -1450,7 +1465,7 @@ nm_platform_bond_add (NMPlatform *self, const char *name, NMPlatformLink *out_li
  *
  * Create a software teaming device.
  */
-gboolean
+NMPlatformError
 nm_platform_team_add (NMPlatform *self, const char *name, NMPlatformLink *out_link)
 {
 	debug ("link: adding team '%s'", name);
@@ -1467,7 +1482,7 @@ nm_platform_team_add (NMPlatform *self, const char *name, NMPlatformLink *out_li
  *
  * Create a software VLAN device.
  */
-gboolean
+NMPlatformError
 nm_platform_vlan_add (NMPlatform *self,
                       const char *name,
                       int parent,
@@ -1475,23 +1490,38 @@ nm_platform_vlan_add (NMPlatform *self,
                       guint32 vlanflags,
                       NMPlatformLink *out_link)
 {
-	_CHECK_SELF (self, klass, FALSE);
+	int ifindex;
+
+	_CHECK_SELF (self, klass, NM_PLATFORM_ERROR_BUG);
 	reset_error (self);
 
-	g_return_val_if_fail (parent >= 0, FALSE);
-	g_return_val_if_fail (vlanid >= 0, FALSE);
-	g_return_val_if_fail (name, FALSE);
-	g_return_val_if_fail (klass->vlan_add, FALSE);
+	g_return_val_if_fail (parent >= 0, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail (vlanid >= 0, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail (name, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail (klass->vlan_add, NM_PLATFORM_ERROR_BUG);
 
-	if (nm_platform_link_exists (self, name)) {
-		debug ("link already exists: %s", name);
-		self->error = NM_PLATFORM_ERROR_EXISTS;
-		return FALSE;
+	ifindex = nm_platform_link_get_ifindex (self, name);
+	if (ifindex > 0) {
+		NMPlatformLink pllink;
+
+		if (nm_platform_link_get (self, ifindex, &pllink)) {
+			debug ("link already exists: %s", name);
+			if (out_link)
+				*out_link = pllink;
+			if (pllink.type != NM_LINK_TYPE_VLAN) {
+				nm_platform_set_error (self, NM_PLATFORM_ERROR_WRONG_TYPE);
+				return NM_PLATFORM_ERROR_WRONG_TYPE;
+			}
+			nm_platform_set_error (self, NM_PLATFORM_ERROR_EXISTS);
+			return NM_PLATFORM_ERROR_EXISTS;
+		}
 	}
 
 	debug ("link: adding vlan '%s' parent %d vlanid %d vlanflags %x",
 		name, parent, vlanid, vlanflags);
-	return klass->vlan_add (self, name, parent, vlanid, vlanflags, out_link);
+	if (!klass->vlan_add (self, name, parent, vlanid, vlanflags, out_link))
+		return NM_PLATFORM_ERROR_UNSPECIFIED;
+	return NM_PLATFORM_ERROR_SUCCESS;
 }
 
 gboolean
@@ -1591,35 +1621,48 @@ nm_platform_vlan_set_egress_map (NMPlatform *self, int ifindex, int from, int to
 	return klass->vlan_set_egress_map (self, ifindex, from, to);
 }
 
-gboolean
+NMPlatformError
 nm_platform_infiniband_partition_add (NMPlatform *self, int parent, int p_key, NMPlatformLink *out_link)
 {
 	const char *parent_name;
 	char *name;
+	int ifindex;
 
-	_CHECK_SELF (self, klass, FALSE);
+	_CHECK_SELF (self, klass, NM_PLATFORM_ERROR_BUG);
 	reset_error (self);
 
-	g_return_val_if_fail (parent >= 0, FALSE);
-	g_return_val_if_fail (p_key >= 0, FALSE);
-	g_return_val_if_fail (klass->infiniband_partition_add, FALSE);
+	g_return_val_if_fail (parent >= 0, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail (p_key >= 0, NM_PLATFORM_ERROR_BUG);
+	g_return_val_if_fail (klass->infiniband_partition_add, NM_PLATFORM_ERROR_BUG);
 
 	if (nm_platform_link_get_type (self, parent) != NM_LINK_TYPE_INFINIBAND) {
 		self->error = NM_PLATFORM_ERROR_WRONG_TYPE;
-		return FALSE;
+		return NM_PLATFORM_ERROR_WRONG_TYPE;
 	}
 
 	parent_name = nm_platform_link_get_name (self, parent);
 	name = g_strdup_printf ("%s.%04x", parent_name, p_key);
-	if (nm_platform_link_exists (self, name)) {
-		debug ("infiniband: already exists");
-		self->error = NM_PLATFORM_ERROR_EXISTS;
-		g_free (name);
-		return FALSE;
-	}
+	ifindex = nm_platform_link_get_ifindex (self, name);
 	g_free (name);
+	if (ifindex > 0) {
+		NMPlatformLink pllink;
 
-	return klass->infiniband_partition_add (self, parent, p_key, out_link);
+		if (nm_platform_link_get (self, ifindex, &pllink)) {
+			debug ("infiniband: already exists");
+			if (out_link)
+				*out_link = pllink;
+			if (pllink.type != NM_LINK_TYPE_INFINIBAND) {
+				nm_platform_set_error (self, NM_PLATFORM_ERROR_WRONG_TYPE);
+				return NM_PLATFORM_ERROR_WRONG_TYPE;
+			}
+			nm_platform_set_error (self, NM_PLATFORM_ERROR_EXISTS);
+			return NM_PLATFORM_ERROR_EXISTS;
+		}
+	}
+
+	if (!klass->infiniband_partition_add (self, parent, p_key, out_link))
+		return NM_PLATFORM_ERROR_UNSPECIFIED;
+	return NM_PLATFORM_ERROR_SUCCESS;
 }
 
 gboolean
