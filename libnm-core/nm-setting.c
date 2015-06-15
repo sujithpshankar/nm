@@ -1832,6 +1832,31 @@ _nm_setting_get_deprecated_virtual_interface_name (NMSetting *setting,
 }
 
 /**
+ * nm_setting_property_get_gtype:
+ * @setting: the #NMSetting
+ * @property_name: the name of the property
+ *
+ * Return #Gtype of the @property_name property.
+ *
+ * Returns: #GType of the property
+ *
+ * Since: 1.2
+ **/
+GType
+nm_setting_property_get_gtype (NMSetting *setting, const char *property_name)
+{
+	GParamSpec *pspec;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), G_TYPE_INVALID);
+	g_return_val_if_fail (property_name, G_TYPE_INVALID);
+
+	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
+	if (pspec)
+		return pspec->value_type;
+	return G_TYPE_INVALID;
+}
+
+/**
  * nm_setting_property_get_valid_values:
  * @setting: the #NMSetting
  * @property_name: the name of the property
@@ -1953,10 +1978,7 @@ nm_setting_property_is_boolean (NMSetting *setting, const char *property_name)
 	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
 	g_return_val_if_fail (property_name, FALSE);
 
-	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
-	if (pspec && pspec->value_type == G_TYPE_BOOLEAN)
-		return TRUE;
-	return FALSE;
+	return nm_setting_property_get_gtype (setting, property_name) == G_TYPE_BOOLEAN;
 }
 
 /**
@@ -1979,10 +2001,7 @@ nm_setting_property_is_hash (NMSetting *setting, const char *property_name)
 	g_return_val_if_fail (NM_IS_SETTING (setting), FALSE);
 	g_return_val_if_fail (property_name, FALSE);
 
-	pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (setting), property_name);
-	if (pspec && pspec->value_type == G_TYPE_HASH_TABLE)
-		return TRUE;
-	return FALSE;
+	return nm_setting_property_get_gtype (setting, property_name) == G_TYPE_HASH_TABLE;
 }
 
 /** _nm_setting_validate_string_property:

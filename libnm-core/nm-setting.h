@@ -283,6 +283,9 @@ const GVariantType *nm_setting_get_dbus_property_type (NMSetting *setting,
 #define NM_SETTING_PROPERTY_METADATA_MAYBE_FILENAME "metadata-maybe-filename"
 #define NM_SETTING_PROPERTY_METADATA_MULTI          "metadata-multi"
 NM_AVAILABLE_IN_1_2
+GType         nm_setting_property_get_gtype        (NMSetting *setting,
+                                                    const char *property_name);
+NM_AVAILABLE_IN_1_2
 const char  **nm_setting_property_get_valid_values (NMSetting *setting,
                                                     const char *property_name);
 NM_AVAILABLE_IN_1_2
@@ -300,7 +303,6 @@ gboolean      nm_setting_property_is_hash          (NMSetting *setting,
 NM_AVAILABLE_IN_1_2
 gboolean      nm_setting_property_is_boolean       (NMSetting *setting,
                                                     const char *property_name);
-
 G_END_DECLS
 
 #endif /* __NM_SETTING_H__ */
