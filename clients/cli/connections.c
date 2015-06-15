@@ -6365,8 +6365,13 @@ get_allowed_property_values (void)
 	const char **avals = NULL;
 
 	get_setting_and_property (rl_prompt, rl_line_buffer, &setting, &property);
-	if (setting && property)
-		avals = nmc_setting_get_property_allowed_values (setting, property);
+	if (setting && property) {
+		/* Special case bond.options property */
+		if (NM_IS_SETTING_BOND (setting) && !strcmp (property, "options"))
+			avals = nm_setting_bond_get_valid_options (NM_SETTING_BOND (setting));
+		else
+			avals = nmc_setting_get_property_allowed_values (setting, property);
+	}
 
 	if (setting)
 		g_object_unref (setting);
@@ -6445,9 +6450,14 @@ should_complete_property_values (const char *prompt, const char *line,
 
 	get_setting_and_property (prompt, line, &setting, &property);
 	if (setting && property) {
-		is_enumeration = !!nm_setting_property_get_valid_values (setting, property);
-		is_multi = nm_setting_property_is_multi_value (setting, property);
-		is_hash = nm_setting_property_is_hash (setting, property);
+		/* Special case for bond.options */
+		if (NM_IS_SETTING_BOND (setting) && !strcmp (property, "options")) {
+			is_enumeration = is_multi = is_hash = TRUE;
+		} else {
+			is_enumeration = !!nm_setting_property_get_valid_values (setting, property);
+			is_multi = nm_setting_property_is_multi_value (setting, property);
+			is_hash = nm_setting_property_is_hash (setting, property);
+		}
 	}
 
 	if (setting)

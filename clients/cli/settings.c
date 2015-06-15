@@ -5119,7 +5119,7 @@ nmc_properties_init (void)
 	                    nmc_property_bond_set_options,
 	                    nmc_property_bond_remove_option_options,
 	                    nmc_property_bond_describe_options,
-	                    nm_setting_property_get_valid_values,
+	                    nm_setting_bond_get_valid_options,
 	                    NULL);
 
 	/* Add editable properties for NM_SETTING_BRIDGE_SETTING_NAME */
