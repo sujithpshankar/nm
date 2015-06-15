@@ -640,7 +640,7 @@ update_resolv_conf (char **searches,
 }
 
 static void
-compute_hash (NMDnsManager *self, guint8 buffer[HASH_LEN])
+compute_hash (NMDnsManager *self, GlobalDnsConf *global, guint8 buffer[HASH_LEN])
 {
 	NMDnsManagerPrivate *priv = NM_DNS_MANAGER_GET_PRIVATE (self);
 	GChecksum *sum;
@@ -649,6 +649,31 @@ compute_hash (NMDnsManager *self, guint8 buffer[HASH_LEN])
 
 	sum = g_checksum_new (G_CHECKSUM_SHA1);
 	g_assert (len == g_checksum_type_get_length (G_CHECKSUM_SHA1));
+
+	if (global) {
+		GHashTableIter ht_iter;
+		gpointer key, value;
+
+		for (iter = global->searches; iter; iter = g_slist_next (iter))
+			g_checksum_update (sum, (guchar *) iter->data, strlen ((char *) iter->data));
+
+		for (iter = global->options; iter; iter = g_slist_next (iter))
+			g_checksum_update (sum, (guchar *) iter->data, strlen ((char *) iter->data));
+
+		// TODO: sort by key
+		g_hash_table_iter_init (&ht_iter, global->domains);
+		while (g_hash_table_iter_next (&ht_iter, &key, &value)) {
+			GlobalDnsDomainConf *domain = value;
+
+			g_checksum_update (sum, (guchar *) key, strlen (key));
+
+			for (iter = domain->servers; iter; iter = g_slist_next (iter))
+				g_checksum_update (sum, (guchar *) iter->data, strlen ((char *) iter->data));
+
+			for (iter = domain->options; iter; iter = g_slist_next (iter))
+				g_checksum_update (sum, (guchar *) iter->data, strlen ((char *) iter->data));
+		}
+	}
 
 	if (priv->ip4_vpn_config)
 		nm_ip4_config_hash (priv->ip4_vpn_config, sum, TRUE);
@@ -715,6 +740,34 @@ build_plugin_config_lists (NMDnsManager *self,
 }
 
 static gboolean
+merge_global_dns_config (NMResolvConfData *rc, GlobalDnsConf *global_conf)
+{
+	GlobalDnsDomainConf *default_domain;
+	GSList *iter;
+
+	if (!global_conf)
+		return FALSE;
+
+	// TODO: support split-DNS
+	default_domain = g_hash_table_lookup (global_conf->domains, "*");
+	if (!default_domain)
+		return FALSE;
+
+	for (iter = global_conf->searches; iter; iter = g_slist_next (iter)) {
+		if (DOMAIN_IS_VALID ((char *) iter->data))
+			add_string_item (rc->searches, iter->data);
+	}
+
+	for (iter = global_conf->options; iter; iter = g_slist_next (iter))
+		add_string_item (rc->options, iter->data);
+
+	for (iter = default_domain->servers; iter; iter = g_slist_next (iter))
+		add_string_item (rc->nameservers, iter->data);
+
+	return TRUE;
+}
+
+static gboolean
 update_dns (NMDnsManager *self,
             gboolean no_caching,
             GError **error)
@@ -731,6 +784,7 @@ update_dns (NMDnsManager *self,
 	gboolean caching = FALSE, update = TRUE;
 	gboolean resolv_conf_updated = FALSE;
 	SpawnResult result = SR_ERROR;
+	GlobalDnsConf *global_conf;
 
 	g_return_val_if_fail (!error || !*error, FALSE);
 
@@ -744,8 +798,10 @@ update_dns (NMDnsManager *self,
 		nm_log_dbg (LOGD_DNS, "updating resolv.conf");
 	}
 
+	global_conf = nm_config_data_get_global_dns_conf (NM_CONFIG_GET_DATA);
+
 	/* Update hash with config we're applying */
-	compute_hash (self, priv->hash);
+	compute_hash (self, global_conf, priv->hash);
 
 	rc.nameservers = g_ptr_array_new ();
 	rc.searches = g_ptr_array_new ();
@@ -753,33 +809,35 @@ update_dns (NMDnsManager *self,
 	rc.nis_domain = NULL;
 	rc.nis_servers = g_ptr_array_new ();
 
-	if (priv->ip4_vpn_config)
-		merge_one_ip4_config (&rc, priv->ip4_vpn_config);
-	if (priv->ip4_device_config)
-		merge_one_ip4_config (&rc, priv->ip4_device_config);
+    if (!merge_global_dns_config (&rc, global_conf)) {
+		if (priv->ip4_vpn_config)
+			merge_one_ip4_config (&rc, priv->ip4_vpn_config);
+		if (priv->ip4_device_config)
+			merge_one_ip4_config (&rc, priv->ip4_device_config);
 
-	if (priv->ip6_vpn_config)
-		merge_one_ip6_config (&rc, priv->ip6_vpn_config);
-	if (priv->ip6_device_config)
-		merge_one_ip6_config (&rc, priv->ip6_device_config);
+		if (priv->ip6_vpn_config)
+			merge_one_ip6_config (&rc, priv->ip6_vpn_config);
+		if (priv->ip6_device_config)
+			merge_one_ip6_config (&rc, priv->ip6_device_config);
 
-	for (iter = priv->configs; iter; iter = g_slist_next (iter)) {
-		if (   (iter->data == priv->ip4_vpn_config)
-		    || (iter->data == priv->ip4_device_config)
-		    || (iter->data == priv->ip6_vpn_config)
-		    || (iter->data == priv->ip6_device_config))
-			continue;
+		for (iter = priv->configs; iter; iter = g_slist_next (iter)) {
+			if (   (iter->data == priv->ip4_vpn_config)
+				|| (iter->data == priv->ip4_device_config)
+				|| (iter->data == priv->ip6_vpn_config)
+				|| (iter->data == priv->ip6_device_config))
+				continue;
 
-		if (NM_IS_IP4_CONFIG (iter->data)) {
-			NMIP4Config *config = NM_IP4_CONFIG (iter->data);
+			if (NM_IS_IP4_CONFIG (iter->data)) {
+				NMIP4Config *config = NM_IP4_CONFIG (iter->data);
 
-			merge_one_ip4_config (&rc, config);
-		} else if (NM_IS_IP6_CONFIG (iter->data)) {
-			NMIP6Config *config = NM_IP6_CONFIG (iter->data);
+				merge_one_ip4_config (&rc, config);
+			} else if (NM_IS_IP6_CONFIG (iter->data)) {
+				NMIP6Config *config = NM_IP6_CONFIG (iter->data);
 
-			merge_one_ip6_config (&rc, config);
-		} else
-			g_assert_not_reached ();
+				merge_one_ip6_config (&rc, config);
+			} else
+				g_assert_not_reached ();
+		}
 	}
 
 	/* If the hostname is a FQDN ("dcbw.example.com"), then add the domain part of it
@@ -1185,7 +1243,7 @@ nm_dns_manager_end_updates (NMDnsManager *mgr, const char *func)
 	priv = NM_DNS_MANAGER_GET_PRIVATE (mgr);
 	g_return_if_fail (priv->updates_queue > 0);
 
-	compute_hash (mgr, new);
+	compute_hash (mgr, nm_config_data_get_global_dns_conf (NM_CONFIG_GET_DATA), new);
 	changed = (memcmp (new, priv->prev_hash, sizeof (new)) != 0) ? TRUE : FALSE;
 	nm_log_dbg (LOGD_DNS, "(%s): DNS configuration %s", __func__, changed ? "changed" : "did not change");
 
@@ -1321,7 +1379,8 @@ nm_dns_manager_init (NMDnsManager *self)
 	NMDnsManagerPrivate *priv = NM_DNS_MANAGER_GET_PRIVATE (self);
 
 	/* Set the initial hash */
-	compute_hash (self, NM_DNS_MANAGER_GET_PRIVATE (self)->hash);
+	compute_hash (self, nm_config_data_get_global_dns_conf (NM_CONFIG_GET_DATA),
+	              NM_DNS_MANAGER_GET_PRIVATE (self)->hash);
 
 	priv->config = g_object_ref (nm_config_get ());
 	g_signal_connect (G_OBJECT (priv->config),
